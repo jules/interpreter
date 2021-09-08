@@ -22,7 +22,10 @@ mod tests {
             return true;
         } else {
             return false;
-        }";
+        }
+
+        10 == 10;
+        10 != 9;";
 
         let mut lexer = Lexer::new(input);
 
@@ -107,6 +110,14 @@ mod tests {
             Token::new(TokenType::False, String::from("false")),
             Token::new(TokenType::Semicolon, String::from(";")),
             Token::new(TokenType::RBrace, String::from("}")),
+            Token::new(TokenType::Int, String::from("10")),
+            Token::new(TokenType::Equal, String::from("==")),
+            Token::new(TokenType::Int, String::from("10")),
+            Token::new(TokenType::Semicolon, String::from(";")),
+            Token::new(TokenType::Int, String::from("10")),
+            Token::new(TokenType::NotEqual, String::from("!=")),
+            Token::new(TokenType::Int, String::from("9")),
+            Token::new(TokenType::Semicolon, String::from(";")),
         ];
 
         assert!(tokens

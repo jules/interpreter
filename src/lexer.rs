@@ -1,14 +1,15 @@
 use crate::tokens::{Token, TokenType};
 use std::str::Chars;
+use std::iter::Peekable;
 
 pub struct Lexer<'a> {
-    pub input: Chars<'a>,
+    pub input: Peekable<Chars<'a>>,
     pub ch: char,
 }
 
 impl<'a> Lexer<'a> {
     pub fn new(input_string: &'a str) -> Self {
-        let mut input = input_string.chars();
+        let mut input = input_string.chars().peekable();
         let initial = input.next().unwrap();
         Self {
             input: input,
@@ -20,10 +21,24 @@ impl<'a> Lexer<'a> {
         self.eat_whitespace();
 
         let token = match self.ch {
-            '=' => Token::new(TokenType::Assign, self.ch.into()),
+            '=' => {
+               if self.peek_char() == '=' {
+                   self.read_char();
+                   Token::new(TokenType::Equal, "==".to_string())
+               } else {
+                   Token::new(TokenType::Assign, self.ch.into())
+               }
+            },
             '+' => Token::new(TokenType::Plus, self.ch.into()),
             '-' => Token::new(TokenType::Minus, self.ch.into()),
-            '!' => Token::new(TokenType::Bang, self.ch.into()),
+            '!' => {
+                if self.peek_char() == '=' {
+                    self.read_char();
+                    Token::new(TokenType::NotEqual, "!=".to_string())
+                } else {
+                    Token::new(TokenType::Bang, self.ch.into())
+                }
+            },
             '*' => Token::new(TokenType::Asterisk, self.ch.into()),
             '/' => Token::new(TokenType::Slash, self.ch.into()),
             '<' => Token::new(TokenType::LessThan, self.ch.into()),
@@ -56,6 +71,13 @@ impl<'a> Lexer<'a> {
         match self.input.next() {
             Some(ch) => self.ch = ch,
             None => self.ch = '0',
+        }
+    }
+
+    fn peek_char(&mut self) -> char {
+        match self.input.peek() {
+            Some(ch) => *ch,
+            None => '0',
         }
     }
 
