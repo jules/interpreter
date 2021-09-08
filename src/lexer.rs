@@ -53,14 +53,10 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn eat_whitespace(&mut self) -> bool {
-        let mut consumed = false;
+    fn eat_whitespace(&mut self) {
         while self.ch == ' ' || self.ch == '\t' || self.ch == '\n' || self.ch == '\r' {
-            consumed = true;
             self.read_char();
         }
-
-        consumed
     }
 
     fn read_ident(&mut self, conditional: fn(char) -> bool) -> String {
