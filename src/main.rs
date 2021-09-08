@@ -1,5 +1,10 @@
 pub mod lexer;
+pub mod repl;
 pub mod tokens;
+
+fn main() {
+    repl::start();
+}
 
 #[cfg(test)]
 mod tests {

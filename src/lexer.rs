@@ -1,6 +1,6 @@
 use crate::tokens::{Token, TokenType};
-use std::str::Chars;
 use std::iter::Peekable;
+use std::str::Chars;
 
 pub struct Lexer<'a> {
     pub input: Peekable<Chars<'a>>,
@@ -22,13 +22,13 @@ impl<'a> Lexer<'a> {
 
         let token = match self.ch {
             '=' => {
-               if self.peek_char() == '=' {
-                   self.read_char();
-                   Token::new(TokenType::Equal, "==".to_string())
-               } else {
-                   Token::new(TokenType::Assign, self.ch.into())
-               }
-            },
+                if self.peek_char() == '=' {
+                    self.read_char();
+                    Token::new(TokenType::Equal, "==".to_string())
+                } else {
+                    Token::new(TokenType::Assign, self.ch.into())
+                }
+            }
             '+' => Token::new(TokenType::Plus, self.ch.into()),
             '-' => Token::new(TokenType::Minus, self.ch.into()),
             '!' => {
@@ -38,7 +38,7 @@ impl<'a> Lexer<'a> {
                 } else {
                     Token::new(TokenType::Bang, self.ch.into())
                 }
-            },
+            }
             '*' => Token::new(TokenType::Asterisk, self.ch.into()),
             '/' => Token::new(TokenType::Slash, self.ch.into()),
             '<' => Token::new(TokenType::LessThan, self.ch.into()),
