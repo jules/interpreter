@@ -22,6 +22,12 @@ impl<'a> Lexer<'a> {
         let token = match self.ch {
             '=' => Token::new(TokenType::Assign, self.ch.into()),
             '+' => Token::new(TokenType::Plus, self.ch.into()),
+            '-' => Token::new(TokenType::Minus, self.ch.into()),
+            '!' => Token::new(TokenType::Bang, self.ch.into()),
+            '*' => Token::new(TokenType::Asterisk, self.ch.into()),
+            '/' => Token::new(TokenType::Slash, self.ch.into()),
+            '<' => Token::new(TokenType::LessThan, self.ch.into()),
+            '>' => Token::new(TokenType::GreaterThan, self.ch.into()),
             ',' => Token::new(TokenType::Comma, self.ch.into()),
             ';' => Token::new(TokenType::Semicolon, self.ch.into()),
             '(' => Token::new(TokenType::LParen, self.ch.into()),

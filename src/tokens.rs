@@ -4,16 +4,33 @@ pub enum TokenType {
     EOF,
     Ident,
     Int,
+
+    // Operators
     Assign,
     Plus,
+    Minus,
+    Bang,
+    Asterisk,
+    Slash,
+
+    LessThan,
+    GreaterThan,
+
     Comma,
     Semicolon,
     LParen,
     RParen,
     LBrace,
     RBrace,
+
+    // Keywords
     Function,
     Let,
+    True,
+    False,
+    If,
+    Else,
+    Return,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -37,6 +54,26 @@ impl From<&str> for Token {
             },
             "let" => Token {
                 t: TokenType::Let,
+                v: value.into(),
+            },
+            "true" => Token {
+                t: TokenType::True,
+                v: value.into(),
+            },
+            "false" => Token {
+                t: TokenType::False,
+                v: value.into(),
+            },
+            "if" => Token {
+                t: TokenType::If,
+                v: value.into(),
+            },
+            "else" => Token {
+                t: TokenType::Else,
+                v: value.into(),
+            },
+            "return" => Token {
+                t: TokenType::Return,
                 v: value.into(),
             },
             _ => Token {
