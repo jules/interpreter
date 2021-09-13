@@ -1,4 +1,4 @@
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum TokenType {
     Illegal,
     EOF,
@@ -36,7 +36,13 @@ pub enum TokenType {
     Return,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+impl Default for TokenType {
+    fn default() -> Self {
+        TokenType::Illegal
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Token {
     pub t: TokenType,
     pub v: String,
