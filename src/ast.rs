@@ -26,7 +26,6 @@ pub enum Node {
         value: Option<Box<Node>>,
     },
     ExpressionStatement {
-        token: Token,
         expression: Option<Box<Node>>,
     },
 }
@@ -40,7 +39,13 @@ impl Node {
             Node::InfixExpression { left, operator, .. } => operator.clone(),
             Node::LetStatement { .. } => "let".to_string(),
             Node::ReturnStatement { .. } => "return".to_string(),
-            Node::ExpressionStatement { token, .. } => token.v.clone(),
+            Node::ExpressionStatement { expression } => {
+                if let Some(expr) = expression {
+                    expr.token_literal()
+                } else {
+                    "".to_string()
+                }
+            }
         }
     }
 
@@ -87,10 +92,8 @@ impl Node {
 
                 s.push(';');
             }
-            Node::ExpressionStatement { token, expression } => {
-                s.push_str(&token.v);
+            Node::ExpressionStatement { expression } => {
                 if let Some(v) = expression {
-                    s.push(' ');
                     s.push_str(&v.as_string());
                 }
 
@@ -108,7 +111,7 @@ pub struct Program {
 }
 
 impl Program {
-    fn as_string(&self) -> String {
+    pub fn as_string(&self) -> String {
         let mut s = String::new();
         self.statements.iter().for_each(|st| {
             s.push_str(&st.as_string());

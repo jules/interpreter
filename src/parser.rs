@@ -98,7 +98,6 @@ impl<'a> Parser<'a> {
 
     fn parse_expression_statement(&mut self) -> Result<Node, ParserError> {
         let expr = Node::ExpressionStatement {
-            token: self.curr_token.clone(),
             expression: Some(Box::new(self.parse_expression(Precedence::Lowest)?)),
         };
 
@@ -308,7 +307,6 @@ mod tests {
 
         let stmt = program.statements[0].clone();
         let ident = Node::ExpressionStatement {
-            token: Token::new(TokenType::Ident, "foobar".to_string()),
             expression: Some(Box::new(Node::Identifier {
                 value: Token::new(TokenType::Ident, "foobar".to_string()),
             })),
@@ -331,7 +329,6 @@ mod tests {
 
         let stmt = program.statements[0].clone();
         let ident = Node::ExpressionStatement {
-            token: Token::new(TokenType::Int, "5".to_string()),
             expression: Some(Box::new(Node::IntegerLiteral { value: 5 })),
         };
         assert_eq!(stmt, ident);
@@ -355,7 +352,6 @@ mod tests {
         let mut iter = program.statements.into_iter();
         let stmt = iter.next().unwrap();
         let ident = Node::ExpressionStatement {
-            token: Token::new(TokenType::Bang, "!".to_string()),
             expression: Some(Box::new(Node::PrefixExpression {
                 operator: "!".to_string(),
                 right: Box::new(Node::IntegerLiteral { value: 5 }),
@@ -366,7 +362,6 @@ mod tests {
 
         let stmt = iter.next().unwrap();
         let ident = Node::ExpressionStatement {
-            token: Token::new(TokenType::Minus, "-".to_string()),
             expression: Some(Box::new(Node::PrefixExpression {
                 operator: "-".to_string(),
                 right: Box::new(Node::IntegerLiteral { value: 15 }),
@@ -399,7 +394,6 @@ mod tests {
         let mut iter = program.statements.into_iter();
         let stmt = iter.next().unwrap();
         let ident = Node::ExpressionStatement {
-            token: Token::new(TokenType::Int, "5".to_string()),
             expression: Some(Box::new(Node::InfixExpression {
                 left: Box::new(Node::IntegerLiteral { value: 5 }),
                 operator: "+".to_string(),
@@ -407,11 +401,10 @@ mod tests {
             })),
         };
         assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "5".to_string());
+        assert_eq!(stmt.token_literal(), "+".to_string());
 
         let stmt = iter.next().unwrap();
         let ident = Node::ExpressionStatement {
-            token: Token::new(TokenType::Int, "5".to_string()),
             expression: Some(Box::new(Node::InfixExpression {
                 left: Box::new(Node::IntegerLiteral { value: 5 }),
                 operator: "-".to_string(),
@@ -419,11 +412,10 @@ mod tests {
             })),
         };
         assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "5".to_string());
+        assert_eq!(stmt.token_literal(), "-".to_string());
 
         let stmt = iter.next().unwrap();
         let ident = Node::ExpressionStatement {
-            token: Token::new(TokenType::Int, "5".to_string()),
             expression: Some(Box::new(Node::InfixExpression {
                 left: Box::new(Node::IntegerLiteral { value: 5 }),
                 operator: "*".to_string(),
@@ -431,11 +423,10 @@ mod tests {
             })),
         };
         assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "5".to_string());
+        assert_eq!(stmt.token_literal(), "*".to_string());
 
         let stmt = iter.next().unwrap();
         let ident = Node::ExpressionStatement {
-            token: Token::new(TokenType::Int, "5".to_string()),
             expression: Some(Box::new(Node::InfixExpression {
                 left: Box::new(Node::IntegerLiteral { value: 5 }),
                 operator: "/".to_string(),
@@ -443,11 +434,10 @@ mod tests {
             })),
         };
         assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "5".to_string());
+        assert_eq!(stmt.token_literal(), "/".to_string());
 
         let stmt = iter.next().unwrap();
         let ident = Node::ExpressionStatement {
-            token: Token::new(TokenType::Int, "5".to_string()),
             expression: Some(Box::new(Node::InfixExpression {
                 left: Box::new(Node::IntegerLiteral { value: 5 }),
                 operator: ">".to_string(),
@@ -455,11 +445,10 @@ mod tests {
             })),
         };
         assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "5".to_string());
+        assert_eq!(stmt.token_literal(), ">".to_string());
 
         let stmt = iter.next().unwrap();
         let ident = Node::ExpressionStatement {
-            token: Token::new(TokenType::Int, "5".to_string()),
             expression: Some(Box::new(Node::InfixExpression {
                 left: Box::new(Node::IntegerLiteral { value: 5 }),
                 operator: "<".to_string(),
@@ -467,11 +456,10 @@ mod tests {
             })),
         };
         assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "5".to_string());
+        assert_eq!(stmt.token_literal(), "<".to_string());
 
         let stmt = iter.next().unwrap();
         let ident = Node::ExpressionStatement {
-            token: Token::new(TokenType::Int, "5".to_string()),
             expression: Some(Box::new(Node::InfixExpression {
                 left: Box::new(Node::IntegerLiteral { value: 5 }),
                 operator: "==".to_string(),
@@ -479,11 +467,10 @@ mod tests {
             })),
         };
         assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "5".to_string());
+        assert_eq!(stmt.token_literal(), "==".to_string());
 
         let stmt = iter.next().unwrap();
         let ident = Node::ExpressionStatement {
-            token: Token::new(TokenType::Int, "5".to_string()),
             expression: Some(Box::new(Node::InfixExpression {
                 left: Box::new(Node::IntegerLiteral { value: 5 }),
                 operator: "!=".to_string(),
@@ -491,7 +478,21 @@ mod tests {
             })),
         };
         assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "5".to_string());
+        assert_eq!(stmt.token_literal(), "!=".to_string());
+    }
+
+    #[test]
+    fn test_parse_string() {
+        let input = "
+            !5 * 5 + 5 * 5;";
+
+        let mut lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        assert!(!did_parser_fail(parser.errors));
+
+        println!("{}", program.as_string());
     }
 
     fn did_parser_fail(errors: Vec<ParserError>) -> bool {
