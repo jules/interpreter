@@ -4,7 +4,10 @@ pub trait Node {
     fn token_literal(&self) -> String;
 }
 
-pub trait Statement: Node {}
+pub trait Statement: Node {
+    fn name(&self) -> String;
+    fn value(&self) -> Option<String>;
+}
 
 pub trait Expression: Node {}
 
@@ -41,7 +44,49 @@ impl Node for LetStatement<'_> {
     }
 }
 
-impl Statement for LetStatement<'_> {}
+impl Statement for LetStatement<'_> {
+    fn name(&self) -> String {
+        self.name.token_literal()
+    }
+
+    fn value(&self) -> Option<String> {
+        match self.value {
+            Some(v) => Some(v.token_literal()),
+            None => None,
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct ReturnStatement<'a>{
+    pub token: Token,
+    pub value: Option<&'a dyn Expression>,
+}
+
+impl<'a> ReturnStatement<'a> {
+    pub fn new(token: Token, value: Option<&'a dyn Expression>) -> Self {
+        Self { token, value }
+    }
+}
+
+impl Node for ReturnStatement<'_> {
+    fn token_literal(&self) -> String {
+        self.token.v.clone()
+    }
+}
+
+impl Statement for ReturnStatement<'_> {
+    fn name(&self) -> String {
+        "".to_owned()
+    }
+
+    fn value(&self) -> Option<String> {
+        match self.value {
+            Some(v) => Some(v.token_literal()),
+            None => None,
+        }
+    }
+}
 
 #[derive(Default)]
 pub struct Identifier {
