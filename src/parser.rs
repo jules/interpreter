@@ -2,6 +2,17 @@ use crate::ast::{Node, Program};
 use crate::lexer::Lexer;
 use crate::tokens::{Token, TokenType};
 
+#[derive(Eq, PartialEq, Ord, PartialOrd)]
+pub enum Precedence {
+    Lowest,
+    Equals,
+    LessGreater,
+    Sum,
+    Product,
+    Prefix,
+    Call,
+}
+
 #[derive(Debug)]
 pub enum ParserError {
     TokenUnrecognized,
@@ -53,7 +64,7 @@ impl<'a> Parser<'a> {
         match self.curr_token.t {
             TokenType::Let => self.parse_let_statement(),
             TokenType::Return => self.parse_return_statement(),
-            _ => Err(ParserError::TokenUnrecognized),
+            _ => self.parse_expression_statement(),
         }
     }
 
@@ -70,12 +81,7 @@ impl<'a> Parser<'a> {
             return Err(ParserError::AssignExpected);
         }
 
-        loop {
-            self.next_token();
-            if self.curr_token.t == TokenType::Semicolon {
-                break;
-            }
-        }
+        self.peek_until_semicolon();
 
         Ok(Node::LetStatement {
             name: Box::new(ident),
@@ -84,14 +90,37 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_return_statement(&mut self) -> Result<Node, ParserError> {
+        self.peek_until_semicolon();
+
+        Ok(Node::ReturnStatement { value: None })
+    }
+
+    fn parse_expression_statement(&mut self) -> Result<Node, ParserError> {
+        let expr = Node::ExpressionStatement {
+            token: self.curr_token.clone(),
+            expression: Some(Box::new(self.parse_expression(Precedence::Lowest)?)),
+        };
+
+        self.peek_until_semicolon();
+        Ok(expr)
+    }
+
+    fn parse_expression(&mut self, precedence: Precedence) -> Result<Node, ParserError> {
+        match self.curr_token.t {
+            TokenType::Ident => Ok(Node::Identifier {
+                value: self.curr_token.clone(),
+            }),
+            _ => Err(ParserError::TokenUnrecognized),
+        }
+    }
+
+    fn peek_until_semicolon(&mut self) {
         loop {
             self.next_token();
             if self.curr_token.t == TokenType::Semicolon {
                 break;
             }
         }
-
-        Ok(Node::ReturnStatement { value: None })
     }
 
     fn expect_peek(&mut self, token_type: TokenType) -> bool {
@@ -197,8 +226,11 @@ mod tests {
         assert_eq!(1, program.statements.len());
 
         let stmt = program.statements[0].clone();
-        let ident = Node::Identifier {
-            value: Token::new(TokenType::Ident, "foobar".to_string()),
+        let ident = Node::ExpressionStatement {
+            token: Token::new(TokenType::Ident, "foobar".to_string()),
+            expression: Some(Box::new(Node::Identifier {
+                value: Token::new(TokenType::Ident, "foobar".to_string()),
+            })),
         };
         assert_eq!(stmt, ident);
         assert_eq!(stmt.token_literal(), "foobar".to_string());
