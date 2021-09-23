@@ -9,6 +9,10 @@ pub enum Node {
     IntegerLiteral {
         value: i64,
     },
+    PrefixExpression {
+        operator: String,
+        right: Box<Node>,
+    },
     LetStatement {
         name: Box<Node>,
         value: Option<Box<Node>>,
@@ -27,6 +31,7 @@ impl Node {
         match &self {
             Node::Identifier { value } => value.v.clone(),
             Node::IntegerLiteral { value } => value.to_string(),
+            Node::PrefixExpression { operator, .. } => operator.clone(),
             Node::LetStatement { .. } => "let".to_string(),
             Node::ReturnStatement { .. } => "return".to_string(),
             Node::ExpressionStatement { token, .. } => token.v.clone(),
@@ -38,6 +43,12 @@ impl Node {
         match &self {
             Node::Identifier { value } => s.push_str(&value.v),
             Node::IntegerLiteral { value } => s.push_str(&value.to_string()),
+            Node::PrefixExpression { operator, right } => {
+                s.push('(');
+                s.push_str(&operator);
+                s.push_str(&*right.as_string());
+                s.push(')');
+            },
             Node::LetStatement { name, value } => {
                 s.push_str(&"let");
                 if let Node::Identifier { value } = &**name {

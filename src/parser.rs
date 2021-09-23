@@ -112,6 +112,7 @@ impl<'a> Parser<'a> {
                 value: self.curr_token.clone(),
             }),
             TokenType::Int => self.parse_integer_literal(),
+            TokenType::Minus | TokenType::Bang => self.parse_prefix_expression(),
             _ => Err(ParserError::TokenUnrecognized),
         }
     }
@@ -123,6 +124,16 @@ impl<'a> Parser<'a> {
                 .v
                 .parse()
                 .map_err(|_| ParserError::IntegerParsingFailed)?,
+        })
+    }
+
+    fn parse_prefix_expression(&mut self) -> Result<Node, ParserError> {
+        let prefix_token = self.curr_token.clone();
+
+        self.next_token();
+        Ok(Node::PrefixExpression {
+            operator: prefix_token.v.clone(),
+            right: Box::new(self.parse_expression(Precedence::Prefix)?),
         })
     }
 
@@ -267,6 +278,48 @@ mod tests {
         };
         assert_eq!(stmt, ident);
         assert_eq!(stmt.token_literal(), "5".to_string());
+    }
+
+    #[test]
+    fn test_prefix_expression() {
+        let input = "
+            !5;
+            -15;";
+
+        let mut lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        assert!(!did_parser_fail(parser.errors));
+
+        assert_eq!(2, program.statements.len());
+
+        let mut iter = program.statements.into_iter();
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            token: Token::new(TokenType::Bang, "!".to_string()),
+            expression: Some(Box::new(Node::PrefixExpression { 
+                operator: "!".to_string(),
+                right: Box::new(Node::IntegerLiteral {
+                    value: 5,
+                }),
+            })),
+        };
+        assert_eq!(stmt, ident);
+        assert_eq!(stmt.token_literal(), "!".to_string());
+
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            token: Token::new(TokenType::Minus, "-".to_string()),
+            expression: Some(Box::new(Node::PrefixExpression { 
+                operator: "-".to_string(),
+                right: Box::new(Node::IntegerLiteral {
+                    value: 15,
+                }),
+            })),
+        };
+        assert_eq!(stmt, ident);
+        assert_eq!(stmt.token_literal(), "-".to_string());
     }
 
     fn did_parser_fail(errors: Vec<ParserError>) -> bool {
