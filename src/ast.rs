@@ -1,23 +1,87 @@
 use crate::tokens::Token;
 
-pub trait Node {
-    fn token_literal(&self) -> String;
-    fn as_string(&self) -> String;
+/// All types of AST nodes.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Node {
+    Identifier {
+        value: Token,
+    },
+    LetStatement {
+        name: Box<Node>,
+        value: Option<Box<Node>>,
+    },
+    ReturnStatement {
+        value: Option<Box<Node>>,
+    },
+    ExpressionStatement {
+        token: Token,
+        expression: Option<Box<Node>>,
+    },
 }
 
-pub trait Statement: Node {
-    fn name(&self) -> String;
-    fn value(&self) -> Option<String>;
-}
+impl Node {
+    pub fn token_literal(&self) -> String {
+        match &self {
+            Node::Identifier { value } => value.v.clone(),
+            Node::LetStatement { .. } => "let".to_string(),
+            Node::ReturnStatement { .. } => "return".to_string(),
+            Node::ExpressionStatement { token, .. } => token.v.clone(),
+        }
+    }
 
-pub trait Expression: Node {}
+    pub fn as_string(&self) -> String {
+        let mut s = String::new();
+        match &self {
+            Node::Identifier { value } => s.push_str(&value.v),
+            Node::LetStatement { name, value } => {
+                s.push_str(&"let");
+                if let Node::Identifier { value } = &**name {
+                    s.push(' ');
+                    s.push_str(&value.v);
+                }
+                if let Some(v) = value {
+                    if let Node::Identifier { value } = &**v {
+                        s.push_str(&" = ");
+                        s.push_str(&value.v);
+                    }
+                }
+
+                s.push(';');
+            }
+            Node::ReturnStatement { value } => {
+                s.push_str(&"return");
+                if let Some(v) = value {
+                    if let Node::Identifier { value } = &**v {
+                        s.push(' ');
+                        s.push_str(&value.v);
+                    }
+                }
+
+                s.push(';');
+            }
+            Node::ExpressionStatement { token, expression } => {
+                s.push_str(&token.v);
+                if let Some(v) = expression {
+                    if let Node::Identifier { value } = &**v {
+                        s.push(' ');
+                        s.push_str(&value.v);
+                    }
+                }
+
+                s.push(';');
+            }
+        };
+
+        s
+    }
+}
 
 #[derive(Default)]
 pub struct Program {
-    pub statements: Vec<Box<dyn Statement>>,
+    pub statements: Vec<Node>,
 }
 
-impl Node for Program {
+impl Program {
     fn token_literal(&self) -> String {
         match self.statements.len() {
             0 => String::from(""),
@@ -35,154 +99,6 @@ impl Node for Program {
     }
 }
 
-#[derive(Default)]
-pub struct LetStatement {
-    pub token: Token,
-    pub name: Identifier,
-    pub value: Option<Box<dyn Expression>>,
-}
-
-impl LetStatement {
-    pub fn new(token: Token, name: Identifier, value: Option<Box<dyn Expression>>) -> Self {
-        Self { token, name, value }
-    }
-}
-
-impl Node for LetStatement {
-    fn token_literal(&self) -> String {
-        self.token.v.clone()
-    }
-
-    fn as_string(&self) -> String {
-        let mut s = String::new();
-        s.push_str(&self.token_literal());
-        s.push(' ');
-        s.push_str(&self.name());
-        s.push_str(&" = ");
-        if let Some(v) = self.value() {
-            s.push_str(&v);
-        }
-
-        s.push(';');
-        s
-    }
-}
-
-impl Statement for LetStatement {
-    fn name(&self) -> String {
-        self.name.token_literal()
-    }
-
-    fn value(&self) -> Option<String> {
-        match &self.value {
-            Some(v) => Some(v.token_literal()),
-            None => None,
-        }
-    }
-}
-
-#[derive(Default)]
-pub struct ReturnStatement {
-    pub token: Token,
-    pub value: Option<Box<dyn Expression>>,
-}
-
-impl ReturnStatement {
-    pub fn new(token: Token, value: Option<Box<dyn Expression>>) -> Self {
-        Self { token, value }
-    }
-}
-
-impl Node for ReturnStatement {
-    fn token_literal(&self) -> String {
-        self.token.v.clone()
-    }
-
-    fn as_string(&self) -> String {
-        let mut s = String::new();
-        s.push_str(&self.token_literal());
-        s.push(' ');
-        if let Some(v) = self.value() {
-            s.push_str(&v);
-        }
-
-        s.push(';');
-        s
-    }
-}
-
-impl Statement for ReturnStatement {
-    fn name(&self) -> String {
-        "".to_owned()
-    }
-
-    fn value(&self) -> Option<String> {
-        match &self.value {
-            Some(v) => Some(v.token_literal()),
-            None => None,
-        }
-    }
-}
-
-pub struct ExpressionStatement {
-    pub token: Token,
-    pub value: Option<Box<Expression>>,
-}
-
-impl Node for ExpressionStatement {
-    fn token_literal(&self) -> String {
-        self.token.v.clone()
-    }
-
-    fn as_string(&self) -> String {
-        let mut s = String::new();
-        s.push_str(&self.token_literal());
-        if let Some(v) = self.value() {
-            s.push_str(&v);
-        }
-
-        s.push(';');
-        s
-    }
-}
-
-impl Statement for ExpressionStatement {
-    fn name(&self) -> String {
-        "".to_owned()
-    }
-
-    fn value(&self) -> Option<String> {
-        match &self.value {
-            Some(v) => Some(v.token_literal()),
-            None => None,
-        }
-    }
-}
-
-#[derive(Default)]
-pub struct Identifier {
-    token: Token,
-    v: String,
-}
-
-impl Identifier {
-    pub fn new(token: Token, v: String) -> Self {
-        Self { token, v }
-    }
-}
-
-impl Node for Identifier {
-    fn token_literal(&self) -> String {
-        self.token.v.clone()
-    }
-
-    fn as_string(&self) -> String {
-        self.v.clone()
-    }
-}
-
-impl Expression for Identifier {}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -190,19 +106,15 @@ mod tests {
 
     #[test]
     fn test_string() {
-        let value = Identifier::new(
-            Token::new(TokenType::Ident, "another_var".to_string()),
-            "another_var".to_string(),
-        );
         let program = Program {
-            statements: vec![Box::new(LetStatement {
-                token: Token::new(TokenType::Let, "let".to_string()),
-                name: Identifier::new(
-                    Token::new(TokenType::Ident, "my_var".to_string()),
-                    "my_var".to_string(),
-                ),
-                value: Some(Box::new(value)),
-            })],
+            statements: vec![Node::LetStatement {
+                name: Box::new(Node::Identifier {
+                    value: Token::new(TokenType::Ident, "my_var".to_string()),
+                }),
+                value: Some(Box::new(Node::Identifier {
+                    value: Token::new(TokenType::Ident, "another_var".to_string()),
+                })),
+            }],
         };
 
         assert_eq!(program.as_string(), "let my_var = another_var;".to_owned());

@@ -1,4 +1,4 @@
-use crate::ast::{Identifier, LetStatement, Program, ReturnStatement, Statement};
+use crate::ast::{Node, Program};
 use crate::lexer::Lexer;
 use crate::tokens::{Token, TokenType};
 
@@ -49,22 +49,22 @@ impl<'a> Parser<'a> {
         self.curr_token.t == TokenType::EOF
     }
 
-    fn parse_statement(&mut self) -> Result<Box<dyn Statement>, ParserError> {
+    fn parse_statement(&mut self) -> Result<Node, ParserError> {
         match self.curr_token.t {
-            TokenType::Let => Ok(self.parse_let_statement()?),
-            TokenType::Return => Ok(self.parse_return_statement()?),
+            TokenType::Let => self.parse_let_statement(),
+            TokenType::Return => self.parse_return_statement(),
             _ => Err(ParserError::TokenUnrecognized),
         }
     }
 
-    fn parse_let_statement(&mut self) -> Result<Box<dyn Statement>, ParserError> {
-        let let_token = self.curr_token.clone();
-
+    fn parse_let_statement(&mut self) -> Result<Node, ParserError> {
         if !self.expect_peek(TokenType::Ident) {
             return Err(ParserError::IdentExpected);
         }
 
-        let ident = Identifier::new(self.curr_token.clone(), self.curr_token.v.clone());
+        let ident = Node::Identifier {
+            value: self.curr_token.clone(),
+        };
 
         if !self.expect_peek(TokenType::Assign) {
             return Err(ParserError::AssignExpected);
@@ -77,13 +77,13 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let stmt = LetStatement::new(let_token, ident, None);
-        Ok(Box::new(stmt))
+        Ok(Node::LetStatement {
+            name: Box::new(ident),
+            value: None,
+        })
     }
 
-    fn parse_return_statement(&mut self) -> Result<Box<dyn Statement>, ParserError> {
-        let let_token = self.curr_token.clone();
-
+    fn parse_return_statement(&mut self) -> Result<Node, ParserError> {
         loop {
             self.next_token();
             if self.curr_token.t == TokenType::Semicolon {
@@ -91,8 +91,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let stmt = ReturnStatement::new(let_token, None);
-        Ok(Box::new(stmt))
+        Ok(Node::ReturnStatement { value: None })
     }
 
     fn expect_peek(&mut self, token_type: TokenType) -> bool {
@@ -133,15 +132,30 @@ mod tests {
 
         let first_statement = iter.next().expect("should contain a statement");
         assert_eq!(String::from("let"), first_statement.token_literal());
-        assert_eq!(String::from("x"), first_statement.name());
+        if let Node::LetStatement { name, value } = first_statement {
+            assert_eq!(String::from("x"), name.token_literal());
+            assert!(value.is_none());
+        } else {
+            panic!("expected let statement");
+        }
 
         let second_statement = iter.next().expect("should contain a statement");
         assert_eq!(String::from("let"), second_statement.token_literal());
-        assert_eq!(String::from("y"), second_statement.name());
+        if let Node::LetStatement { name, value } = second_statement {
+            assert_eq!(String::from("y"), name.token_literal());
+            assert!(value.is_none());
+        } else {
+            panic!("expected let statement");
+        }
 
         let third_statement = iter.next().expect("should contain a statement");
         assert_eq!(String::from("let"), third_statement.token_literal());
-        assert_eq!(String::from("z"), third_statement.name());
+        if let Node::LetStatement { name, value } = third_statement {
+            assert_eq!(String::from("z"), name.token_literal());
+            assert!(value.is_none());
+        } else {
+            panic!("expected let statement");
+        }
     }
 
     #[test]
@@ -163,7 +177,31 @@ mod tests {
 
         let first_statement = iter.next().expect("should contain a statement");
         assert_eq!(String::from("return"), first_statement.token_literal());
-        assert_eq!(Some(String::from("5")), first_statement.value());
+        if let Node::ReturnStatement { value } = first_statement {
+            assert!(value.is_none());
+        } else {
+            panic!("expected return statement");
+        }
+    }
+
+    #[test]
+    fn test_identifier_expression() {
+        let input = "foobar;";
+
+        let mut lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        assert!(!did_parser_fail(parser.errors));
+
+        assert_eq!(1, program.statements.len());
+
+        let stmt = program.statements[0].clone();
+        let ident = Node::Identifier {
+            value: Token::new(TokenType::Ident, "foobar".to_string()),
+        };
+        assert_eq!(stmt, ident);
+        assert_eq!(stmt.token_literal(), "foobar".to_string());
     }
 
     fn did_parser_fail(errors: Vec<ParserError>) -> bool {
