@@ -87,13 +87,6 @@ pub struct Program {
 }
 
 impl Program {
-    fn token_literal(&self) -> String {
-        match self.statements.len() {
-            0 => String::from(""),
-            _ => self.statements[0].token_literal(),
-        }
-    }
-
     fn as_string(&self) -> String {
         let mut s = String::new();
         self.statements.iter().for_each(|st| {
