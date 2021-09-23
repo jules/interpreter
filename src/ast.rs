@@ -50,16 +50,11 @@ impl Node {
                 s.push(')');
             },
             Node::LetStatement { name, value } => {
-                s.push_str(&"let");
-                if let Node::Identifier { value } = &**name {
-                    s.push(' ');
-                    s.push_str(&value.v);
-                }
+                s.push_str(&"let ");
+                s.push_str(&name.as_string());
                 if let Some(v) = value {
-                    if let Node::Identifier { value } = &**v {
-                        s.push_str(&" = ");
-                        s.push_str(&value.v);
-                    }
+                    s.push_str(&" = ");
+                    s.push_str(&v.as_string());
                 }
 
                 s.push(';');
@@ -67,10 +62,8 @@ impl Node {
             Node::ReturnStatement { value } => {
                 s.push_str(&"return");
                 if let Some(v) = value {
-                    if let Node::Identifier { value } = &**v {
-                        s.push(' ');
-                        s.push_str(&value.v);
-                    }
+                    s.push(' ');
+                    s.push_str(&v.as_string());
                 }
 
                 s.push(';');
@@ -78,10 +71,8 @@ impl Node {
             Node::ExpressionStatement { token, expression } => {
                 s.push_str(&token.v);
                 if let Some(v) = expression {
-                    if let Node::Identifier { value } = &**v {
-                        s.push(' ');
-                        s.push_str(&value.v);
-                    }
+                    s.push(' ');
+                    s.push_str(&v.as_string());
                 }
 
                 s.push(';');
