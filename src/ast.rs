@@ -13,6 +13,11 @@ pub enum Node {
         operator: String,
         right: Box<Node>,
     },
+    InfixExpression {
+        left: Box<Node>,
+        operator: String,
+        right: Box<Node>,
+    },
     LetStatement {
         name: Box<Node>,
         value: Option<Box<Node>>,
@@ -32,6 +37,7 @@ impl Node {
             Node::Identifier { value } => value.v.clone(),
             Node::IntegerLiteral { value } => value.to_string(),
             Node::PrefixExpression { operator, .. } => operator.clone(),
+            Node::InfixExpression { left, operator, .. } => operator.clone(),
             Node::LetStatement { .. } => "let".to_string(),
             Node::ReturnStatement { .. } => "return".to_string(),
             Node::ExpressionStatement { token, .. } => token.v.clone(),
@@ -48,7 +54,20 @@ impl Node {
                 s.push_str(&operator);
                 s.push_str(&*right.as_string());
                 s.push(')');
-            },
+            }
+            Node::InfixExpression {
+                left,
+                operator,
+                right,
+            } => {
+                s.push('(');
+                s.push_str(&*left.as_string());
+                s.push(' ');
+                s.push_str(&operator);
+                s.push(' ');
+                s.push_str(&*right.as_string());
+                s.push(')');
+            }
             Node::LetStatement { name, value } => {
                 s.push_str(&"let ");
                 s.push_str(&name.as_string());

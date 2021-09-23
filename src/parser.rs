@@ -107,14 +107,26 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Node, ParserError> {
-        match self.curr_token.t {
+        let mut left_exp = match self.curr_token.t {
             TokenType::Ident => Ok(Node::Identifier {
                 value: self.curr_token.clone(),
             }),
             TokenType::Int => self.parse_integer_literal(),
             TokenType::Minus | TokenType::Bang => self.parse_prefix_expression(),
             _ => Err(ParserError::TokenUnrecognized),
+        }?;
+
+        while self.peek_token.t != TokenType::Semicolon && precedence < self.check_peek_precedence()
+        {
+            if !self.should_keep_parsing() {
+                return Ok(left_exp);
+            }
+
+            self.next_token();
+            left_exp = self.parse_infix_expression(left_exp)?;
         }
+
+        Ok(left_exp)
     }
 
     fn parse_integer_literal(&mut self) -> Result<Node, ParserError> {
@@ -137,12 +149,58 @@ impl<'a> Parser<'a> {
         })
     }
 
+    fn parse_infix_expression(&mut self, left: Node) -> Result<Node, ParserError> {
+        let operator = self.curr_token.clone();
+
+        let precedence = self.check_curr_precedence();
+        self.next_token();
+        Ok(Node::InfixExpression {
+            left: Box::new(left),
+            operator: operator.v,
+            right: Box::new(self.parse_expression(precedence)?),
+        })
+    }
+
+    fn check_curr_precedence(&mut self) -> Precedence {
+        match self.curr_token.t {
+            TokenType::Equal | TokenType::NotEqual => Precedence::Equals,
+            TokenType::LessThan | TokenType::GreaterThan => Precedence::LessGreater,
+            TokenType::Plus | TokenType::Minus => Precedence::Sum,
+            TokenType::Slash | TokenType::Asterisk => Precedence::Product,
+            _ => Precedence::Lowest,
+        }
+    }
+
+    fn check_peek_precedence(&mut self) -> Precedence {
+        match self.peek_token.t {
+            TokenType::Equal | TokenType::NotEqual => Precedence::Equals,
+            TokenType::LessThan | TokenType::GreaterThan => Precedence::LessGreater,
+            TokenType::Plus | TokenType::Minus => Precedence::Sum,
+            TokenType::Slash | TokenType::Asterisk => Precedence::Product,
+            _ => Precedence::Lowest,
+        }
+    }
+
     fn peek_until_semicolon(&mut self) {
         loop {
             self.next_token();
             if self.curr_token.t == TokenType::Semicolon {
                 break;
             }
+        }
+    }
+
+    fn should_keep_parsing(&mut self) -> bool {
+        match self.peek_token.t {
+            TokenType::Plus
+            | TokenType::Minus
+            | TokenType::Slash
+            | TokenType::Asterisk
+            | TokenType::Equal
+            | TokenType::NotEqual
+            | TokenType::LessThan
+            | TokenType::GreaterThan => true,
+            _ => false,
         }
     }
 
@@ -298,11 +356,9 @@ mod tests {
         let stmt = iter.next().unwrap();
         let ident = Node::ExpressionStatement {
             token: Token::new(TokenType::Bang, "!".to_string()),
-            expression: Some(Box::new(Node::PrefixExpression { 
+            expression: Some(Box::new(Node::PrefixExpression {
                 operator: "!".to_string(),
-                right: Box::new(Node::IntegerLiteral {
-                    value: 5,
-                }),
+                right: Box::new(Node::IntegerLiteral { value: 5 }),
             })),
         };
         assert_eq!(stmt, ident);
@@ -311,15 +367,131 @@ mod tests {
         let stmt = iter.next().unwrap();
         let ident = Node::ExpressionStatement {
             token: Token::new(TokenType::Minus, "-".to_string()),
-            expression: Some(Box::new(Node::PrefixExpression { 
+            expression: Some(Box::new(Node::PrefixExpression {
                 operator: "-".to_string(),
-                right: Box::new(Node::IntegerLiteral {
-                    value: 15,
-                }),
+                right: Box::new(Node::IntegerLiteral { value: 15 }),
             })),
         };
         assert_eq!(stmt, ident);
         assert_eq!(stmt.token_literal(), "-".to_string());
+    }
+
+    #[test]
+    fn test_infix_expression() {
+        let input = "
+            5 + 5;
+            5 - 5;
+            5 * 5;
+            5 / 5;
+            5 > 5;
+            5 < 5;
+            5 == 5;
+            5 != 5;";
+
+        let mut lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        assert!(!did_parser_fail(parser.errors));
+
+        assert_eq!(8, program.statements.len());
+
+        let mut iter = program.statements.into_iter();
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            token: Token::new(TokenType::Int, "5".to_string()),
+            expression: Some(Box::new(Node::InfixExpression {
+                left: Box::new(Node::IntegerLiteral { value: 5 }),
+                operator: "+".to_string(),
+                right: Box::new(Node::IntegerLiteral { value: 5 }),
+            })),
+        };
+        assert_eq!(stmt, ident);
+        assert_eq!(stmt.token_literal(), "5".to_string());
+
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            token: Token::new(TokenType::Int, "5".to_string()),
+            expression: Some(Box::new(Node::InfixExpression {
+                left: Box::new(Node::IntegerLiteral { value: 5 }),
+                operator: "-".to_string(),
+                right: Box::new(Node::IntegerLiteral { value: 5 }),
+            })),
+        };
+        assert_eq!(stmt, ident);
+        assert_eq!(stmt.token_literal(), "5".to_string());
+
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            token: Token::new(TokenType::Int, "5".to_string()),
+            expression: Some(Box::new(Node::InfixExpression {
+                left: Box::new(Node::IntegerLiteral { value: 5 }),
+                operator: "*".to_string(),
+                right: Box::new(Node::IntegerLiteral { value: 5 }),
+            })),
+        };
+        assert_eq!(stmt, ident);
+        assert_eq!(stmt.token_literal(), "5".to_string());
+
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            token: Token::new(TokenType::Int, "5".to_string()),
+            expression: Some(Box::new(Node::InfixExpression {
+                left: Box::new(Node::IntegerLiteral { value: 5 }),
+                operator: "/".to_string(),
+                right: Box::new(Node::IntegerLiteral { value: 5 }),
+            })),
+        };
+        assert_eq!(stmt, ident);
+        assert_eq!(stmt.token_literal(), "5".to_string());
+
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            token: Token::new(TokenType::Int, "5".to_string()),
+            expression: Some(Box::new(Node::InfixExpression {
+                left: Box::new(Node::IntegerLiteral { value: 5 }),
+                operator: ">".to_string(),
+                right: Box::new(Node::IntegerLiteral { value: 5 }),
+            })),
+        };
+        assert_eq!(stmt, ident);
+        assert_eq!(stmt.token_literal(), "5".to_string());
+
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            token: Token::new(TokenType::Int, "5".to_string()),
+            expression: Some(Box::new(Node::InfixExpression {
+                left: Box::new(Node::IntegerLiteral { value: 5 }),
+                operator: "<".to_string(),
+                right: Box::new(Node::IntegerLiteral { value: 5 }),
+            })),
+        };
+        assert_eq!(stmt, ident);
+        assert_eq!(stmt.token_literal(), "5".to_string());
+
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            token: Token::new(TokenType::Int, "5".to_string()),
+            expression: Some(Box::new(Node::InfixExpression {
+                left: Box::new(Node::IntegerLiteral { value: 5 }),
+                operator: "==".to_string(),
+                right: Box::new(Node::IntegerLiteral { value: 5 }),
+            })),
+        };
+        assert_eq!(stmt, ident);
+        assert_eq!(stmt.token_literal(), "5".to_string());
+
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            token: Token::new(TokenType::Int, "5".to_string()),
+            expression: Some(Box::new(Node::InfixExpression {
+                left: Box::new(Node::IntegerLiteral { value: 5 }),
+                operator: "!=".to_string(),
+                right: Box::new(Node::IntegerLiteral { value: 5 }),
+            })),
+        };
+        assert_eq!(stmt, ident);
+        assert_eq!(stmt.token_literal(), "5".to_string());
     }
 
     fn did_parser_fail(errors: Vec<ParserError>) -> bool {
