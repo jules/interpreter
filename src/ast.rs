@@ -6,6 +6,9 @@ pub enum Node {
     Identifier {
         value: Token,
     },
+    IntegerLiteral {
+        value: i64,
+    },
     LetStatement {
         name: Box<Node>,
         value: Option<Box<Node>>,
@@ -23,6 +26,7 @@ impl Node {
     pub fn token_literal(&self) -> String {
         match &self {
             Node::Identifier { value } => value.v.clone(),
+            Node::IntegerLiteral { value } => value.to_string(),
             Node::LetStatement { .. } => "let".to_string(),
             Node::ReturnStatement { .. } => "return".to_string(),
             Node::ExpressionStatement { token, .. } => token.v.clone(),
@@ -33,6 +37,7 @@ impl Node {
         let mut s = String::new();
         match &self {
             Node::Identifier { value } => s.push_str(&value.v),
+            Node::IntegerLiteral { value } => s.push_str(&value.to_string()),
             Node::LetStatement { name, value } => {
                 s.push_str(&"let");
                 if let Node::Identifier { value } = &**name {

@@ -18,6 +18,7 @@ pub enum ParserError {
     TokenUnrecognized,
     IdentExpected,
     AssignExpected,
+    IntegerParsingFailed,
 }
 
 pub struct Parser<'a> {
@@ -110,8 +111,19 @@ impl<'a> Parser<'a> {
             TokenType::Ident => Ok(Node::Identifier {
                 value: self.curr_token.clone(),
             }),
+            TokenType::Int => self.parse_integer_literal(),
             _ => Err(ParserError::TokenUnrecognized),
         }
+    }
+
+    fn parse_integer_literal(&mut self) -> Result<Node, ParserError> {
+        Ok(Node::IntegerLiteral {
+            value: self
+                .curr_token
+                .v
+                .parse()
+                .map_err(|_| ParserError::IntegerParsingFailed)?,
+        })
     }
 
     fn peek_until_semicolon(&mut self) {
@@ -234,6 +246,27 @@ mod tests {
         };
         assert_eq!(stmt, ident);
         assert_eq!(stmt.token_literal(), "foobar".to_string());
+    }
+
+    #[test]
+    fn test_integer_literal_expression() {
+        let input = "5;";
+
+        let mut lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        assert!(!did_parser_fail(parser.errors));
+
+        assert_eq!(1, program.statements.len());
+
+        let stmt = program.statements[0].clone();
+        let ident = Node::ExpressionStatement {
+            token: Token::new(TokenType::Int, "5".to_string()),
+            expression: Some(Box::new(Node::IntegerLiteral { value: 5 })),
+        };
+        assert_eq!(stmt, ident);
+        assert_eq!(stmt.token_literal(), "5".to_string());
     }
 
     fn did_parser_fail(errors: Vec<ParserError>) -> bool {
