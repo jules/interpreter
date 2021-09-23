@@ -1,4 +1,4 @@
-use crate::ast::{Identifier, ReturnStatement, LetStatement, Program, Statement};
+use crate::ast::{Identifier, LetStatement, Program, ReturnStatement, Statement};
 use crate::lexer::Lexer;
 use crate::tokens::{Token, TokenType};
 
@@ -124,8 +124,7 @@ mod tests {
         let mut lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
-        let program = parser
-            .parse_program();
+        let program = parser.parse_program();
         assert!(!did_parser_fail(parser.errors));
 
         assert_eq!(3, program.statements.len());
@@ -155,8 +154,7 @@ mod tests {
         let mut lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
-        let program = parser
-            .parse_program();
+        let program = parser.parse_program();
         assert!(!did_parser_fail(parser.errors));
 
         assert_eq!(3, program.statements.len());
