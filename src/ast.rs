@@ -21,6 +21,11 @@ pub enum Node {
         operator: String,
         right: Box<Node>,
     },
+    IfExpression {
+        condition: Box<Node>,
+        consequence: Box<Node>,
+        alternative: Option<Box<Node>>,
+    },
     LetStatement {
         name: Box<Node>,
         value: Option<Box<Node>>,
@@ -30,6 +35,9 @@ pub enum Node {
     },
     ExpressionStatement {
         expression: Option<Box<Node>>,
+    },
+    BlockStatement {
+        statements: Vec<Node>,
     },
 }
 
@@ -43,6 +51,7 @@ impl Node {
             Node::InfixExpression {
                 left: _, operator, ..
             } => operator.clone(),
+            Node::IfExpression { .. } => "if".to_string(),
             Node::LetStatement { .. } => "let".to_string(),
             Node::ReturnStatement { .. } => "return".to_string(),
             Node::ExpressionStatement { expression } => {
@@ -52,6 +61,7 @@ impl Node {
                     "".to_string()
                 }
             }
+            Node::BlockStatement { .. } => "{".to_string(),
         }
     }
 
@@ -80,6 +90,21 @@ impl Node {
                 s.push_str(&*right.as_string());
                 s.push(')');
             }
+            Node::IfExpression {
+                condition,
+                consequence,
+                alternative,
+            } => {
+                s.push_str(&"if");
+                s.push_str(&*condition.as_string());
+                s.push(' ');
+                s.push_str(&*consequence.as_string());
+
+                if let Some(a) = alternative {
+                    s.push_str(&"else ");
+                    s.push_str(&a.as_string());
+                }
+            }
             Node::LetStatement { name, value } => {
                 s.push_str(&"let ");
                 s.push_str(&name.as_string());
@@ -105,6 +130,11 @@ impl Node {
                 }
 
                 s.push(';');
+            }
+            Node::BlockStatement { statements } => {
+                statements.iter().for_each(|statement| {
+                    s.push_str(&*statement.as_string());
+                });
             }
         };
 

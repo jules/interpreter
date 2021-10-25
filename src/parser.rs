@@ -20,6 +20,8 @@ pub enum ParserError {
     AssignExpected,
     IntegerParsingFailed,
     BooleanParsingFailed,
+    GroupExpressionParsingFailed,
+    IncorrectIfStatement,
 }
 
 pub struct Parser<'a> {
@@ -102,7 +104,9 @@ impl<'a> Parser<'a> {
             expression: Some(Box::new(self.parse_expression(Precedence::Lowest)?)),
         };
 
-        self.peek_until_semicolon();
+        if self.peek_token.t == TokenType::Semicolon {
+            self.next_token();
+        }
         Ok(expr)
     }
 
@@ -114,6 +118,8 @@ impl<'a> Parser<'a> {
             TokenType::Int => self.parse_integer_literal(),
             TokenType::Minus | TokenType::Bang => self.parse_prefix_expression(),
             TokenType::True | TokenType::False => self.parse_boolean_expression(),
+            TokenType::LParen => self.parse_grouped_expression(),
+            TokenType::If => self.parse_if_expression(),
             _ => Err(ParserError::TokenUnrecognized),
         }?;
 
@@ -166,6 +172,63 @@ impl<'a> Parser<'a> {
         Ok(Node::Boolean {
             value: self.curr_token == Token::new(TokenType::True, String::from("true")),
         })
+    }
+
+    fn parse_grouped_expression(&mut self) -> Result<Node, ParserError> {
+        self.next_token();
+
+        let exp = self.parse_expression(Precedence::Lowest)?;
+        if !self.expect_peek(TokenType::RParen) {
+            return Err(ParserError::GroupExpressionParsingFailed);
+        }
+
+        Ok(exp)
+    }
+
+    fn parse_if_expression(&mut self) -> Result<Node, ParserError> {
+        self.next_token();
+        let condition = self.parse_expression(Precedence::Lowest)?;
+
+        if !self.expect_peek(TokenType::LBrace) {
+            return Err(ParserError::IncorrectIfStatement);
+        }
+
+        let consequence = self.parse_block_statement()?;
+
+        if self.peek_token.t == TokenType::Else {
+            self.next_token();
+
+            if !self.expect_peek(TokenType::LBrace) {
+                return Err(ParserError::IncorrectIfStatement);
+            }
+
+            let alternative = self.parse_block_statement()?;
+
+            Ok(Node::IfExpression {
+                condition: Box::new(condition),
+                consequence: Box::new(consequence),
+                alternative: Some(Box::new(alternative)),
+            })
+        } else {
+            Ok(Node::IfExpression {
+                condition: Box::new(condition),
+                consequence: Box::new(consequence),
+                alternative: None,
+            })
+        }
+    }
+
+    fn parse_block_statement(&mut self) -> Result<Node, ParserError> {
+        let mut statements = vec![];
+
+        self.next_token();
+        while self.curr_token.t != TokenType::RBrace && self.curr_token.t != TokenType::EOF {
+            let stmt = self.parse_statement()?;
+            statements.push(stmt);
+            self.next_token();
+        }
+
+        Ok(Node::BlockStatement { statements })
     }
 
     fn check_curr_precedence(&mut self) -> Precedence {
@@ -233,9 +296,9 @@ mod tests {
     #[test]
     fn test_let_statements() {
         let input = "
-        let x = 5;
-        let y = 10;
-        let z = 838383;";
+            let x = 5;
+            let y = 10;
+            let z = 838383;";
 
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
@@ -278,9 +341,9 @@ mod tests {
     #[test]
     fn test_return_statements() {
         let input = "
-        return 5;
-        return 10;
-        return 987235;";
+            return 5;
+            return 10;
+            return 987235;";
 
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
@@ -346,8 +409,10 @@ mod tests {
     #[test]
     fn test_prefix_expression() {
         let input = "
-            !5;
-            -15;";
+                !5;
+                -15;
+                !true;
+                !false;";
 
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
@@ -355,7 +420,7 @@ mod tests {
         let program = parser.parse_program();
         assert!(!did_parser_fail(parser.errors));
 
-        assert_eq!(2, program.statements.len());
+        assert_eq!(4, program.statements.len());
 
         let mut iter = program.statements.into_iter();
         let stmt = iter.next().unwrap();
@@ -377,22 +442,42 @@ mod tests {
         };
         assert_eq!(stmt, ident);
         assert_eq!(stmt.token_literal(), "-".to_string());
+
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            expression: Some(Box::new(Node::PrefixExpression {
+                operator: "!".to_string(),
+                right: Box::new(Node::Boolean { value: true }),
+            })),
+        };
+        assert_eq!(stmt, ident);
+        assert_eq!(stmt.token_literal(), "!".to_string());
+
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            expression: Some(Box::new(Node::PrefixExpression {
+                operator: "!".to_string(),
+                right: Box::new(Node::Boolean { value: false }),
+            })),
+        };
+        assert_eq!(stmt, ident);
+        assert_eq!(stmt.token_literal(), "!".to_string());
     }
 
     #[test]
     fn test_infix_expression() {
         let input = "
-            5 + 5;
-            5 - 5;
-            5 * 5;
-            5 / 5;
-            5 > 5;
-            5 < 5;
-            5 == 5;
-            5 != 5;
-            true == true;
-            true != false;
-            false == false;";
+                5 + 5;
+                5 - 5;
+                5 * 5;
+                5 / 5;
+                5 > 5;
+                5 < 5;
+                5 == 5;
+                5 != 5;
+                true == true;
+                true != false;
+                false == false;";
 
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
@@ -528,7 +613,7 @@ mod tests {
     #[test]
     fn test_boolean_expression() {
         let input = "true;
-        false;";
+            false;";
 
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
@@ -552,6 +637,134 @@ mod tests {
         };
         assert_eq!(*stmt, ident);
         assert_eq!(stmt.token_literal(), "false".to_string());
+    }
+
+    #[test]
+    fn test_if_expression() {
+        let input = "if x < y { x };";
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        assert!(!did_parser_fail(parser.errors));
+
+        assert_eq!(1, program.statements.len());
+
+        let mut iter = program.statements.iter();
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            expression: Some(Box::new(Node::IfExpression {
+                condition: Box::new(Node::InfixExpression {
+                    left: Box::new(Node::Identifier {
+                        value: Token::new(TokenType::Ident, "x".to_string()),
+                    }),
+                    operator: "<".to_string(),
+                    right: Box::new(Node::Identifier {
+                        value: Token::new(TokenType::Ident, "y".to_string()),
+                    }),
+                }),
+                consequence: Box::new(Node::BlockStatement {
+                    statements: vec![Node::ExpressionStatement {
+                        expression: Some(Box::new(Node::Identifier {
+                            value: Token::new(TokenType::Ident, "x".to_string()),
+                        })),
+                    }],
+                }),
+                alternative: None,
+            })),
+        };
+        assert_eq!(*stmt, ident);
+        assert_eq!(stmt.token_literal(), "if".to_string());
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let input = "if x < y { x } else { y };";
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        assert!(!did_parser_fail(parser.errors));
+
+        assert_eq!(1, program.statements.len());
+
+        let mut iter = program.statements.iter();
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            expression: Some(Box::new(Node::IfExpression {
+                condition: Box::new(Node::InfixExpression {
+                    left: Box::new(Node::Identifier {
+                        value: Token::new(TokenType::Ident, "x".to_string()),
+                    }),
+                    operator: "<".to_string(),
+                    right: Box::new(Node::Identifier {
+                        value: Token::new(TokenType::Ident, "y".to_string()),
+                    }),
+                }),
+                consequence: Box::new(Node::BlockStatement {
+                    statements: vec![Node::ExpressionStatement {
+                        expression: Some(Box::new(Node::Identifier {
+                            value: Token::new(TokenType::Ident, "x".to_string()),
+                        })),
+                    }],
+                }),
+                alternative: Some(Box::new(Node::BlockStatement {
+                    statements: vec![Node::ExpressionStatement {
+                        expression: Some(Box::new(Node::Identifier {
+                            value: Token::new(TokenType::Ident, "y".to_string()),
+                        })),
+                    }],
+                })),
+            })),
+        };
+        assert_eq!(*stmt, ident);
+        assert_eq!(stmt.token_literal(), "if".to_string());
+    }
+
+    #[test]
+    fn test_operator_precedence_parsing() {
+        let table = vec![
+            ("-a * b;", "((-a) * b);"),
+            ("!-a;", "(!(-a));"),
+            ("a + b + c;", "((a + b) + c);"),
+            ("a + b - c;", "((a + b) - c);"),
+            ("a * b * c;", "((a * b) * c);"),
+            ("a * b / c;", "((a * b) / c);"),
+            ("a + b / c;", "(a + (b / c));"),
+            ("a + b * c + d / e - f;", "(((a + (b * c)) + (d / e)) - f);"),
+            ("3 + 4; -5 * 5;", "(3 + 4);((-5) * 5);"),
+            ("5 > 4 == 3 < 4;", "((5 > 4) == (3 < 4));"),
+            ("5 < 4 != 3 > 4;", "((5 < 4) != (3 > 4));"),
+            (
+                "3 + 4 * 5 == 3 * 1 + 4 * 5;",
+                "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)));",
+            ),
+            (
+                "3 + 4 * 5 == 3 * 1 + 4 * 5;",
+                "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)));",
+            ),
+            ("true;", "true;"),
+            ("false;", "false;"),
+            ("3 > 5 == false;", "((3 > 5) == false);"),
+            ("3 < 5 == true;", "((3 < 5) == true);"),
+            ("1 + (2 + 3) + 4;", "((1 + (2 + 3)) + 4);"),
+            ("(5 + 5) * 2;", "((5 + 5) * 2);"),
+            ("2 / (5 + 5);", "(2 / (5 + 5));"),
+            ("-(5 + 5);", "(-(5 + 5));"),
+            ("!(true == true);", "(!(true == true));"),
+        ];
+
+        table.iter().for_each(|(input, output)| {
+            let lexer = Lexer::new(*input);
+            let mut parser = Parser::new(lexer);
+
+            let program = parser.parse_program();
+            assert!(!did_parser_fail(parser.errors));
+
+            assert_eq!(&program.as_string(), *output);
+        });
     }
 
     #[test]
