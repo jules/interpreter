@@ -123,7 +123,6 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Node, ParserError> {
-        println!("{:?}", self.curr_token);
         let mut left_exp = match self.curr_token.t {
             TokenType::Ident => Ok(Node::Identifier {
                 value: self.curr_token.clone(),

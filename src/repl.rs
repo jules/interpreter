@@ -1,5 +1,5 @@
 use crate::lexer::Lexer;
-use crate::tokens::TokenType;
+use crate::parser::Parser;
 use std::io::{self, Write};
 
 pub fn start() {
@@ -12,14 +12,16 @@ pub fn start() {
             .read_line(&mut input)
             .expect("could not read input");
 
-        let mut lexer = Lexer::new(&input);
-        loop {
-            let token = lexer.next_token();
-            if token.t == TokenType::EOF {
-                break;
-            }
+        let lexer = Lexer::new(&input);
+        let mut parser = Parser::new(lexer);
 
-            println!("{:?}", token);
+        let program = parser.parse_program();
+        if parser.errors.len() > 0 {
+            parser.errors.iter().for_each(|e| {
+                println!("{:?}", e);
+            })
         }
+
+        println!("{:?}", program.as_string());
     }
 }
