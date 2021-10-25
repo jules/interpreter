@@ -9,6 +9,9 @@ pub enum Node {
     IntegerLiteral {
         value: i64,
     },
+    Boolean {
+        value: bool,
+    },
     PrefixExpression {
         operator: String,
         right: Box<Node>,
@@ -35,8 +38,11 @@ impl Node {
         match &self {
             Node::Identifier { value } => value.v.clone(),
             Node::IntegerLiteral { value } => value.to_string(),
+            Node::Boolean { value } => value.to_string(),
             Node::PrefixExpression { operator, .. } => operator.clone(),
-            Node::InfixExpression { left, operator, .. } => operator.clone(),
+            Node::InfixExpression {
+                left: _, operator, ..
+            } => operator.clone(),
             Node::LetStatement { .. } => "let".to_string(),
             Node::ReturnStatement { .. } => "return".to_string(),
             Node::ExpressionStatement { expression } => {
@@ -54,6 +60,7 @@ impl Node {
         match &self {
             Node::Identifier { value } => s.push_str(&value.v),
             Node::IntegerLiteral { value } => s.push_str(&value.to_string()),
+            Node::Boolean { value } => s.push_str(&value.to_string()),
             Node::PrefixExpression { operator, right } => {
                 s.push('(');
                 s.push_str(&operator);

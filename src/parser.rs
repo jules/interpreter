@@ -19,6 +19,7 @@ pub enum ParserError {
     IdentExpected,
     AssignExpected,
     IntegerParsingFailed,
+    BooleanParsingFailed,
 }
 
 pub struct Parser<'a> {
@@ -112,6 +113,7 @@ impl<'a> Parser<'a> {
             }),
             TokenType::Int => self.parse_integer_literal(),
             TokenType::Minus | TokenType::Bang => self.parse_prefix_expression(),
+            TokenType::True | TokenType::False => self.parse_boolean_expression(),
             _ => Err(ParserError::TokenUnrecognized),
         }?;
 
@@ -157,6 +159,12 @@ impl<'a> Parser<'a> {
             left: Box::new(left),
             operator: operator.v,
             right: Box::new(self.parse_expression(precedence)?),
+        })
+    }
+
+    fn parse_boolean_expression(&mut self) -> Result<Node, ParserError> {
+        Ok(Node::Boolean {
+            value: self.curr_token == Token::new(TokenType::True, String::from("true")),
         })
     }
 
@@ -229,7 +237,7 @@ mod tests {
         let y = 10;
         let z = 838383;";
 
-        let mut lexer = Lexer::new(input);
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
@@ -274,7 +282,7 @@ mod tests {
         return 10;
         return 987235;";
 
-        let mut lexer = Lexer::new(input);
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
@@ -297,7 +305,7 @@ mod tests {
     fn test_identifier_expression() {
         let input = "foobar;";
 
-        let mut lexer = Lexer::new(input);
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
@@ -319,7 +327,7 @@ mod tests {
     fn test_integer_literal_expression() {
         let input = "5;";
 
-        let mut lexer = Lexer::new(input);
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
@@ -341,7 +349,7 @@ mod tests {
             !5;
             -15;";
 
-        let mut lexer = Lexer::new(input);
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
@@ -381,15 +389,18 @@ mod tests {
             5 > 5;
             5 < 5;
             5 == 5;
-            5 != 5;";
+            5 != 5;
+            true == true;
+            true != false;
+            false == false;";
 
-        let mut lexer = Lexer::new(input);
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
         assert!(!did_parser_fail(parser.errors));
 
-        assert_eq!(8, program.statements.len());
+        assert_eq!(11, program.statements.len());
 
         let mut iter = program.statements.into_iter();
         let stmt = iter.next().unwrap();
@@ -479,6 +490,68 @@ mod tests {
         };
         assert_eq!(stmt, ident);
         assert_eq!(stmt.token_literal(), "!=".to_string());
+
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            expression: Some(Box::new(Node::InfixExpression {
+                left: Box::new(Node::Boolean { value: true }),
+                operator: "==".to_string(),
+                right: Box::new(Node::Boolean { value: true }),
+            })),
+        };
+        assert_eq!(stmt, ident);
+        assert_eq!(stmt.token_literal(), "==".to_string());
+
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            expression: Some(Box::new(Node::InfixExpression {
+                left: Box::new(Node::Boolean { value: true }),
+                operator: "!=".to_string(),
+                right: Box::new(Node::Boolean { value: false }),
+            })),
+        };
+        assert_eq!(stmt, ident);
+        assert_eq!(stmt.token_literal(), "!=".to_string());
+
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            expression: Some(Box::new(Node::InfixExpression {
+                left: Box::new(Node::Boolean { value: false }),
+                operator: "==".to_string(),
+                right: Box::new(Node::Boolean { value: false }),
+            })),
+        };
+        assert_eq!(stmt, ident);
+        assert_eq!(stmt.token_literal(), "==".to_string());
+    }
+
+    #[test]
+    fn test_boolean_expression() {
+        let input = "true;
+        false;";
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        assert!(!did_parser_fail(parser.errors));
+
+        assert_eq!(2, program.statements.len());
+
+        let mut iter = program.statements.iter();
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            expression: Some(Box::new(Node::Boolean { value: true })),
+        };
+        assert_eq!(*stmt, ident);
+        assert_eq!(stmt.token_literal(), "true".to_string());
+
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            expression: Some(Box::new(Node::Boolean { value: false })),
+        };
+        assert_eq!(*stmt, ident);
+        assert_eq!(stmt.token_literal(), "false".to_string());
     }
 
     #[test]
@@ -486,7 +559,7 @@ mod tests {
         let input = "
             !5 * 5 + 5 * 5;";
 
-        let mut lexer = Lexer::new(input);
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
