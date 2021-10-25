@@ -22,6 +22,7 @@ pub enum ParserError {
     BooleanParsingFailed,
     GroupExpressionParsingFailed,
     IncorrectIfStatement,
+    IncorrectFunctionDeclaration,
 }
 
 pub struct Parser<'a> {
@@ -120,6 +121,7 @@ impl<'a> Parser<'a> {
             TokenType::True | TokenType::False => self.parse_boolean_expression(),
             TokenType::LParen => self.parse_grouped_expression(),
             TokenType::If => self.parse_if_expression(),
+            TokenType::Function => self.parse_function_literal(),
             _ => Err(ParserError::TokenUnrecognized),
         }?;
 
@@ -229,6 +231,34 @@ impl<'a> Parser<'a> {
         }
 
         Ok(Node::BlockStatement { statements })
+    }
+
+    fn parse_function_literal(&mut self) -> Result<Node, ParserError> {
+        if !self.expect_peek(TokenType::LParen) {
+            return Err(ParserError::IncorrectFunctionDeclaration);
+        }
+
+        self.next_token();
+        let mut parameters = vec![];
+        while self.curr_token.t != TokenType::RParen {
+            if self.curr_token.t == TokenType::Comma {
+                self.next_token();
+            }
+
+            let parameter = Node::Identifier {
+                value: self.curr_token.clone(),
+            };
+            parameters.push(parameter);
+
+            self.next_token();
+        }
+
+        self.next_token();
+        let body = self.parse_block_statement()?;
+        Ok(Node::FunctionLiteral {
+            parameters,
+            body: Box::new(body),
+        })
     }
 
     fn check_curr_precedence(&mut self) -> Precedence {
@@ -721,6 +751,84 @@ mod tests {
         };
         assert_eq!(*stmt, ident);
         assert_eq!(stmt.token_literal(), "if".to_string());
+    }
+
+    #[test]
+    fn test_function_literal_parsing() {
+        let input = "function(x, y) { x + y; };";
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        assert!(!did_parser_fail(parser.errors));
+
+        assert_eq!(1, program.statements.len());
+
+        let mut iter = program.statements.iter();
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            expression: Some(Box::new(Node::FunctionLiteral {
+                parameters: vec![
+                    Node::Identifier {
+                        value: Token::new(TokenType::Ident, "x".to_string()),
+                    },
+                    Node::Identifier {
+                        value: Token::new(TokenType::Ident, "y".to_string()),
+                    },
+                ],
+                body: Box::new(Node::BlockStatement {
+                    statements: vec![Node::ExpressionStatement {
+                        expression: Some(Box::new(Node::InfixExpression {
+                            left: Box::new(Node::Identifier {
+                                value: Token::new(TokenType::Ident, "x".to_string()),
+                            }),
+                            operator: "+".to_string(),
+                            right: Box::new(Node::Identifier {
+                                value: Token::new(TokenType::Ident, "y".to_string()),
+                            }),
+                        })),
+                    }],
+                }),
+            })),
+        };
+        assert_eq!(*stmt, ident);
+        assert_eq!(stmt.token_literal(), "function".to_string());
+    }
+
+    #[test]
+    fn test_function_parameter_parsing() {
+        let table = vec![
+            ("function() {};", vec![]),
+            ("function(x) {};", vec!["x"]),
+            ("function(x, y) {};", vec!["x", "y"]),
+        ];
+
+        table.iter().for_each(|(input, output)| {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+
+            let program = parser.parse_program();
+            assert!(!did_parser_fail(parser.errors));
+
+            match &program.statements[0] {
+                Node::ExpressionStatement { expression } => {
+                    match *expression
+                        .clone()
+                        .expect("found empty expression statement")
+                    {
+                        Node::FunctionLiteral { parameters, .. } => {
+                            assert_eq!(parameters.len(), output.len());
+                            parameters.iter().zip(output.iter()).for_each(|(p, o)| {
+                                assert_eq!(&p.token_literal(), *o);
+                            });
+                        }
+                        _ => panic!("Unexpected node type"),
+                    }
+                }
+                _ => panic!("Unexpected node type"),
+            }
+        });
     }
 
     #[test]

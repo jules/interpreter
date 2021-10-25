@@ -12,6 +12,10 @@ pub enum Node {
     Boolean {
         value: bool,
     },
+    FunctionLiteral {
+        parameters: Vec<Node>,
+        body: Box<Node>,
+    },
     PrefixExpression {
         operator: String,
         right: Box<Node>,
@@ -47,6 +51,7 @@ impl Node {
             Node::Identifier { value } => value.v.clone(),
             Node::IntegerLiteral { value } => value.to_string(),
             Node::Boolean { value } => value.to_string(),
+            Node::FunctionLiteral { .. } => "function".to_string(),
             Node::PrefixExpression { operator, .. } => operator.clone(),
             Node::InfixExpression {
                 left: _, operator, ..
@@ -71,6 +76,18 @@ impl Node {
             Node::Identifier { value } => s.push_str(&value.v),
             Node::IntegerLiteral { value } => s.push_str(&value.to_string()),
             Node::Boolean { value } => s.push_str(&value.to_string()),
+            Node::FunctionLiteral { parameters, body } => {
+                s.push_str(&"fn(");
+                s.push_str(
+                    &parameters
+                        .iter()
+                        .map(|p| p.as_string())
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                );
+                s.push_str(&") ");
+                s.push_str(&body.as_string());
+            }
             Node::PrefixExpression { operator, right } => {
                 s.push('(');
                 s.push_str(&operator);
