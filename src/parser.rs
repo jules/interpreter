@@ -86,18 +86,29 @@ impl<'a> Parser<'a> {
             return Err(ParserError::AssignExpected);
         }
 
-        self.peek_until_semicolon();
+        self.next_token();
+        let value = self.parse_expression(Precedence::Lowest)?;
+
+        if self.peek_token.t == TokenType::Semicolon {
+            self.next_token();
+        }
 
         Ok(Node::LetStatement {
             name: Box::new(ident),
-            value: None,
+            value: Some(Box::new(value)),
         })
     }
 
     fn parse_return_statement(&mut self) -> Result<Node, ParserError> {
-        self.peek_until_semicolon();
+        self.next_token();
+        let value = self.parse_expression(Precedence::Lowest)?;
+        if self.peek_token.t == TokenType::Semicolon {
+            self.next_token();
+        }
 
-        Ok(Node::ReturnStatement { value: None })
+        Ok(Node::ReturnStatement {
+            value: Some(Box::new(value)),
+        })
     }
 
     fn parse_expression_statement(&mut self) -> Result<Node, ParserError> {
@@ -112,6 +123,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Node, ParserError> {
+        println!("{:?}", self.curr_token);
         let mut left_exp = match self.curr_token.t {
             TokenType::Ident => Ok(Node::Identifier {
                 value: self.curr_token.clone(),
@@ -310,15 +322,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn peek_until_semicolon(&mut self) {
-        loop {
-            self.next_token();
-            if self.curr_token.t == TokenType::Semicolon {
-                break;
-            }
-        }
-    }
-
     fn should_keep_parsing(&mut self) -> bool {
         match self.peek_token.t {
             TokenType::Plus
@@ -374,7 +377,7 @@ mod tests {
         assert_eq!(String::from("let"), first_statement.token_literal());
         if let Node::LetStatement { name, value } = first_statement {
             assert_eq!(String::from("x"), name.token_literal());
-            assert!(value.is_none());
+            assert_eq!(*value, Some(Box::new(Node::IntegerLiteral { value: 5 })));
         } else {
             panic!("expected let statement");
         }
@@ -383,7 +386,7 @@ mod tests {
         assert_eq!(String::from("let"), second_statement.token_literal());
         if let Node::LetStatement { name, value } = second_statement {
             assert_eq!(String::from("y"), name.token_literal());
-            assert!(value.is_none());
+            assert_eq!(*value, Some(Box::new(Node::IntegerLiteral { value: 10 })));
         } else {
             panic!("expected let statement");
         }
@@ -392,7 +395,10 @@ mod tests {
         assert_eq!(String::from("let"), third_statement.token_literal());
         if let Node::LetStatement { name, value } = third_statement {
             assert_eq!(String::from("z"), name.token_literal());
-            assert!(value.is_none());
+            assert_eq!(
+                *value,
+                Some(Box::new(Node::IntegerLiteral { value: 838383 }))
+            );
         } else {
             panic!("expected let statement");
         }
@@ -418,7 +424,7 @@ mod tests {
         let first_statement = iter.next().expect("should contain a statement");
         assert_eq!(String::from("return"), first_statement.token_literal());
         if let Node::ReturnStatement { value } = first_statement {
-            assert!(value.is_none());
+            assert_eq!(*value, Some(Box::new(Node::IntegerLiteral { value: 5 })));
         } else {
             panic!("expected return statement");
         }
