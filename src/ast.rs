@@ -30,6 +30,10 @@ pub enum Node {
         consequence: Box<Node>,
         alternative: Option<Box<Node>>,
     },
+    CallExpression {
+        function: Box<Node>,
+        arguments: Vec<Node>,
+    },
     LetStatement {
         name: Box<Node>,
         value: Option<Box<Node>>,
@@ -57,6 +61,7 @@ impl Node {
                 left: _, operator, ..
             } => operator.clone(),
             Node::IfExpression { .. } => "if".to_string(),
+            Node::CallExpression { function, .. } => function.as_string(),
             Node::LetStatement { .. } => "let".to_string(),
             Node::ReturnStatement { .. } => "return".to_string(),
             Node::ExpressionStatement { expression } => {
@@ -121,6 +126,21 @@ impl Node {
                     s.push_str(&"else ");
                     s.push_str(&a.as_string());
                 }
+            }
+            Node::CallExpression {
+                function,
+                arguments,
+            } => {
+                s.push_str(&function.as_string());
+                s.push('(');
+                s.push_str(
+                    &arguments
+                        .iter()
+                        .map(|p| p.as_string())
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                );
+                s.push(')');
             }
             Node::LetStatement { name, value } => {
                 s.push_str(&"let ");

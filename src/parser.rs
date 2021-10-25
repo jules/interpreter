@@ -2,7 +2,7 @@ use crate::ast::{Node, Program};
 use crate::lexer::Lexer;
 use crate::tokens::{Token, TokenType};
 
-#[derive(Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Precedence {
     Lowest,
     Equals,
@@ -159,6 +159,14 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_infix_expression(&mut self, left: Node) -> Result<Node, ParserError> {
+        // Special case for call expressions, otherwise we end up overlapping
+        // with grouped expressions.
+        // TODO: This is obviously poorly designed and needs to be revamped.
+        if self.curr_token.t == TokenType::LParen {
+            self.next_token();
+            return self.parse_call_expression(left);
+        }
+
         let operator = self.curr_token.clone();
 
         let precedence = self.check_curr_precedence();
@@ -261,12 +269,32 @@ impl<'a> Parser<'a> {
         })
     }
 
+    fn parse_call_expression(&mut self, function: Node) -> Result<Node, ParserError> {
+        let mut arguments = vec![];
+        while self.curr_token.t != TokenType::RParen {
+            if self.curr_token.t == TokenType::Comma {
+                self.next_token();
+            }
+
+            let argument = self.parse_expression(Precedence::Lowest)?;
+            arguments.push(argument);
+
+            self.next_token();
+        }
+
+        Ok(Node::CallExpression {
+            function: Box::new(function),
+            arguments,
+        })
+    }
+
     fn check_curr_precedence(&mut self) -> Precedence {
         match self.curr_token.t {
             TokenType::Equal | TokenType::NotEqual => Precedence::Equals,
             TokenType::LessThan | TokenType::GreaterThan => Precedence::LessGreater,
             TokenType::Plus | TokenType::Minus => Precedence::Sum,
             TokenType::Slash | TokenType::Asterisk => Precedence::Product,
+            TokenType::LParen => Precedence::Call,
             _ => Precedence::Lowest,
         }
     }
@@ -277,6 +305,7 @@ impl<'a> Parser<'a> {
             TokenType::LessThan | TokenType::GreaterThan => Precedence::LessGreater,
             TokenType::Plus | TokenType::Minus => Precedence::Sum,
             TokenType::Slash | TokenType::Asterisk => Precedence::Product,
+            TokenType::LParen => Precedence::Call,
             _ => Precedence::Lowest,
         }
     }
@@ -299,7 +328,8 @@ impl<'a> Parser<'a> {
             | TokenType::Equal
             | TokenType::NotEqual
             | TokenType::LessThan
-            | TokenType::GreaterThan => true,
+            | TokenType::GreaterThan
+            | TokenType::LParen => true,
             _ => false,
         }
     }
@@ -832,6 +862,80 @@ mod tests {
     }
 
     #[test]
+    fn test_call_expression_parsing() {
+        let input = "add(1, 2 * 3, 4 + 5);";
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        assert!(!did_parser_fail(parser.errors));
+
+        let mut iter = program.statements.iter();
+        let stmt = iter.next().unwrap();
+        let ident = Node::ExpressionStatement {
+            expression: Some(Box::new(Node::CallExpression {
+                function: Box::new(Node::Identifier {
+                    value: Token::new(TokenType::Ident, "add".to_string()),
+                }),
+                arguments: vec![
+                    Node::IntegerLiteral { value: 1 },
+                    Node::InfixExpression {
+                        left: Box::new(Node::IntegerLiteral { value: 2 }),
+                        operator: "*".to_string(),
+                        right: Box::new(Node::IntegerLiteral { value: 3 }),
+                    },
+                    Node::InfixExpression {
+                        left: Box::new(Node::IntegerLiteral { value: 4 }),
+                        operator: "+".to_string(),
+                        right: Box::new(Node::IntegerLiteral { value: 5 }),
+                    },
+                ],
+            })),
+        };
+        assert_eq!(*stmt, ident);
+        assert_eq!(stmt.token_literal(), "add".to_string());
+    }
+
+    #[test]
+    fn test_call_expression_parameter_parsing() {
+        let table = vec![
+            ("add();", vec![]),
+            ("add(x);", vec!["x"]),
+            ("add(x, y);", vec!["x", "y"]),
+        ];
+
+        table.iter().for_each(|(input, output)| {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+
+            let program = parser.parse_program();
+            assert!(!did_parser_fail(parser.errors));
+
+            match &program.statements[0] {
+                Node::ExpressionStatement { expression } => {
+                    match *expression
+                        .clone()
+                        .expect("found empty expression statement")
+                    {
+                        Node::CallExpression {
+                            function: _,
+                            arguments,
+                        } => {
+                            assert_eq!(arguments.len(), output.len());
+                            arguments.iter().zip(output.iter()).for_each(|(a, o)| {
+                                assert_eq!(&a.token_literal(), *o);
+                            });
+                        }
+                        _ => panic!("Unexpected node type"),
+                    }
+                }
+                _ => panic!("Unexpected node type"),
+            }
+        });
+    }
+
+    #[test]
     fn test_operator_precedence_parsing() {
         let table = vec![
             ("-a * b;", "((-a) * b);"),
@@ -862,6 +966,15 @@ mod tests {
             ("2 / (5 + 5);", "(2 / (5 + 5));"),
             ("-(5 + 5);", "(-(5 + 5));"),
             ("!(true == true);", "(!(true == true));"),
+            ("a + add(b * c) + d;", "((a + add((b * c))) + d);"),
+            (
+                "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8));",
+                "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)));",
+            ),
+            (
+                "add(a + b + c * d / f + g);",
+                "add((((a + b) + ((c * d) / f)) + g));",
+            ),
         ];
 
         table.iter().for_each(|(input, output)| {
