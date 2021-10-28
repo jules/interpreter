@@ -1,3 +1,4 @@
+use crate::eval::eval;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use std::io::{self, Write};
@@ -22,6 +23,7 @@ pub fn start() {
             })
         }
 
-        println!("{:?}", program.as_string());
+        let evaluated = eval(program);
+        println!("{}", evaluated.inspect());
     }
 }

@@ -1,7 +1,5 @@
 use crate::ast::Node;
-use crate::lexer::Lexer;
 use crate::object::Object;
-use crate::parser::Parser;
 
 pub fn eval(node: Node) -> Object {
     match node {
@@ -25,6 +23,8 @@ fn eval_statements(statements: Vec<Node>) -> Object {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::lexer::Lexer;
+    use crate::parser::Parser;
 
     #[test]
     fn test_eval_integer_expression() {
