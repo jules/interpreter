@@ -1,6 +1,7 @@
 use crate::ast::Node;
 use crate::object::Object;
 
+const NULL: Object = Object::Null;
 const TRUE: Object = Object::Boolean { value: true };
 const FALSE: Object = Object::Boolean { value: false };
 
@@ -19,7 +20,7 @@ pub fn eval(node: Node) -> Object {
             if let Some(e) = expression {
                 eval(*e)
             } else {
-                Object::Null
+                NULL
             }
         }
         _ => panic!("Unsupported object"),
