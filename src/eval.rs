@@ -1,10 +1,20 @@
 use crate::ast::Node;
 use crate::object::Object;
 
+const TRUE: Object = Object::Boolean { value: true };
+const FALSE: Object = Object::Boolean { value: false };
+
 pub fn eval(node: Node) -> Object {
     match node {
         Node::Program { statements } => eval_statements(statements),
         Node::IntegerLiteral { value: v } => Object::Integer { value: v },
+        Node::Boolean { value: v } => {
+            if v {
+                TRUE
+            } else {
+                FALSE
+            }
+        }
         Node::ExpressionStatement { expression } => {
             if let Some(e) = expression {
                 eval(*e)
@@ -34,6 +44,19 @@ mod tests {
             let object = test_eval(input.to_string());
             match object {
                 Object::Integer { value } => assert_eq!(value, *output),
+                _ => panic!("Unexpected object"),
+            }
+        });
+    }
+
+    #[test]
+    fn test_eval_boolean_expression() {
+        let table = vec![("true;".to_string(), true), ("false;".to_string(), false)];
+
+        table.iter().for_each(|(input, output)| {
+            let object = test_eval(input.to_string());
+            match object {
+                Object::Boolean { value } => assert_eq!(value, *output),
                 _ => panic!("Unexpected object"),
             }
         });
