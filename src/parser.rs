@@ -1,4 +1,4 @@
-use crate::ast::{Node, Program};
+use crate::ast::Node;
 use crate::lexer::Lexer;
 use crate::tokens::{Token, TokenType};
 
@@ -46,19 +46,19 @@ impl<'a> Parser<'a> {
         parser
     }
 
-    pub fn parse_program(&mut self) -> Program {
-        let mut program = Program::default();
+    pub fn parse_program(&mut self) -> Node {
+        let mut statements = vec![];
 
         while !self.finished() {
             match self.parse_statement() {
-                Ok(stmt) => program.statements.push(stmt),
+                Ok(stmt) => statements.push(stmt),
                 Err(e) => self.errors.push(e),
             };
 
             self.next_token();
         }
 
-        program
+        Node::Program { statements }
     }
 
     fn finished(&self) -> bool {
@@ -368,38 +368,42 @@ mod tests {
         let program = parser.parse_program();
         assert!(!did_parser_fail(parser.errors));
 
-        assert_eq!(3, program.statements.len());
+        match program {
+            Node::Program { statements } => {
+                assert_eq!(3, statements.len());
+                let mut iter = statements.iter();
 
-        let mut iter = program.statements.iter();
+                let first_statement = iter.next().expect("should contain a statement");
+                assert_eq!(String::from("let"), first_statement.token_literal());
+                if let Node::LetStatement { name, value } = first_statement {
+                    assert_eq!(String::from("x"), name.token_literal());
+                    assert_eq!(*value, Some(Box::new(Node::IntegerLiteral { value: 5 })));
+                } else {
+                    panic!("expected let statement");
+                }
 
-        let first_statement = iter.next().expect("should contain a statement");
-        assert_eq!(String::from("let"), first_statement.token_literal());
-        if let Node::LetStatement { name, value } = first_statement {
-            assert_eq!(String::from("x"), name.token_literal());
-            assert_eq!(*value, Some(Box::new(Node::IntegerLiteral { value: 5 })));
-        } else {
-            panic!("expected let statement");
-        }
+                let second_statement = iter.next().expect("should contain a statement");
+                assert_eq!(String::from("let"), second_statement.token_literal());
+                if let Node::LetStatement { name, value } = second_statement {
+                    assert_eq!(String::from("y"), name.token_literal());
+                    assert_eq!(*value, Some(Box::new(Node::IntegerLiteral { value: 10 })));
+                } else {
+                    panic!("expected let statement");
+                }
 
-        let second_statement = iter.next().expect("should contain a statement");
-        assert_eq!(String::from("let"), second_statement.token_literal());
-        if let Node::LetStatement { name, value } = second_statement {
-            assert_eq!(String::from("y"), name.token_literal());
-            assert_eq!(*value, Some(Box::new(Node::IntegerLiteral { value: 10 })));
-        } else {
-            panic!("expected let statement");
-        }
-
-        let third_statement = iter.next().expect("should contain a statement");
-        assert_eq!(String::from("let"), third_statement.token_literal());
-        if let Node::LetStatement { name, value } = third_statement {
-            assert_eq!(String::from("z"), name.token_literal());
-            assert_eq!(
-                *value,
-                Some(Box::new(Node::IntegerLiteral { value: 838383 }))
-            );
-        } else {
-            panic!("expected let statement");
+                let third_statement = iter.next().expect("should contain a statement");
+                assert_eq!(String::from("let"), third_statement.token_literal());
+                if let Node::LetStatement { name, value } = third_statement {
+                    assert_eq!(String::from("z"), name.token_literal());
+                    assert_eq!(
+                        *value,
+                        Some(Box::new(Node::IntegerLiteral { value: 838383 }))
+                    );
+                } else {
+                    panic!("expected let statement");
+                }
+            }
+            _ => panic!("Unsupported node type"),
         }
     }
 
@@ -416,16 +420,20 @@ mod tests {
         let program = parser.parse_program();
         assert!(!did_parser_fail(parser.errors));
 
-        assert_eq!(3, program.statements.len());
+        match program {
+            Node::Program { statements } => {
+                assert_eq!(3, statements.len());
+                let mut iter = statements.iter();
 
-        let mut iter = program.statements.iter();
-
-        let first_statement = iter.next().expect("should contain a statement");
-        assert_eq!(String::from("return"), first_statement.token_literal());
-        if let Node::ReturnStatement { value } = first_statement {
-            assert_eq!(*value, Some(Box::new(Node::IntegerLiteral { value: 5 })));
-        } else {
-            panic!("expected return statement");
+                let first_statement = iter.next().expect("should contain a statement");
+                assert_eq!(String::from("return"), first_statement.token_literal());
+                if let Node::ReturnStatement { value } = first_statement {
+                    assert_eq!(*value, Some(Box::new(Node::IntegerLiteral { value: 5 })));
+                } else {
+                    panic!("expected return statement");
+                }
+            }
+            _ => panic!("Unexpected node type"),
         }
     }
 
@@ -439,16 +447,20 @@ mod tests {
         let program = parser.parse_program();
         assert!(!did_parser_fail(parser.errors));
 
-        assert_eq!(1, program.statements.len());
-
-        let stmt = program.statements[0].clone();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::Identifier {
-                value: Token::new(TokenType::Ident, "foobar".to_string()),
-            })),
-        };
-        assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "foobar".to_string());
+        match program {
+            Node::Program { statements } => {
+                assert_eq!(1, statements.len());
+                let stmt = statements[0].clone();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::Identifier {
+                        value: Token::new(TokenType::Ident, "foobar".to_string()),
+                    })),
+                };
+                assert_eq!(stmt, ident);
+                assert_eq!(stmt.token_literal(), "foobar".to_string());
+            }
+            _ => panic!("Unsupported node type"),
+        }
     }
 
     #[test]
@@ -461,14 +473,18 @@ mod tests {
         let program = parser.parse_program();
         assert!(!did_parser_fail(parser.errors));
 
-        assert_eq!(1, program.statements.len());
-
-        let stmt = program.statements[0].clone();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::IntegerLiteral { value: 5 })),
-        };
-        assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "5".to_string());
+        match program {
+            Node::Program { statements } => {
+                assert_eq!(1, statements.len());
+                let stmt = statements[0].clone();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::IntegerLiteral { value: 5 })),
+                };
+                assert_eq!(stmt, ident);
+                assert_eq!(stmt.token_literal(), "5".to_string());
+            }
+            _ => panic!("Unsupported node type"),
+        }
     }
 
     #[test]
@@ -485,48 +501,52 @@ mod tests {
         let program = parser.parse_program();
         assert!(!did_parser_fail(parser.errors));
 
-        assert_eq!(4, program.statements.len());
+        match program {
+            Node::Program { statements } => {
+                assert_eq!(4, statements.len());
+                let mut iter = statements.into_iter();
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::PrefixExpression {
+                        operator: "!".to_string(),
+                        right: Box::new(Node::IntegerLiteral { value: 5 }),
+                    })),
+                };
+                assert_eq!(stmt, ident);
+                assert_eq!(stmt.token_literal(), "!".to_string());
 
-        let mut iter = program.statements.into_iter();
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::PrefixExpression {
-                operator: "!".to_string(),
-                right: Box::new(Node::IntegerLiteral { value: 5 }),
-            })),
-        };
-        assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "!".to_string());
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::PrefixExpression {
+                        operator: "-".to_string(),
+                        right: Box::new(Node::IntegerLiteral { value: 15 }),
+                    })),
+                };
+                assert_eq!(stmt, ident);
+                assert_eq!(stmt.token_literal(), "-".to_string());
 
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::PrefixExpression {
-                operator: "-".to_string(),
-                right: Box::new(Node::IntegerLiteral { value: 15 }),
-            })),
-        };
-        assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "-".to_string());
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::PrefixExpression {
+                        operator: "!".to_string(),
+                        right: Box::new(Node::Boolean { value: true }),
+                    })),
+                };
+                assert_eq!(stmt, ident);
+                assert_eq!(stmt.token_literal(), "!".to_string());
 
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::PrefixExpression {
-                operator: "!".to_string(),
-                right: Box::new(Node::Boolean { value: true }),
-            })),
-        };
-        assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "!".to_string());
-
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::PrefixExpression {
-                operator: "!".to_string(),
-                right: Box::new(Node::Boolean { value: false }),
-            })),
-        };
-        assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "!".to_string());
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::PrefixExpression {
+                        operator: "!".to_string(),
+                        right: Box::new(Node::Boolean { value: false }),
+                    })),
+                };
+                assert_eq!(stmt, ident);
+                assert_eq!(stmt.token_literal(), "!".to_string());
+            }
+            _ => panic!("Unsupported node type"),
+        }
     }
 
     #[test]
@@ -550,129 +570,133 @@ mod tests {
         let program = parser.parse_program();
         assert!(!did_parser_fail(parser.errors));
 
-        assert_eq!(11, program.statements.len());
+        match program {
+            Node::Program { statements } => {
+                assert_eq!(11, statements.len());
+                let mut iter = statements.into_iter();
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::InfixExpression {
+                        left: Box::new(Node::IntegerLiteral { value: 5 }),
+                        operator: "+".to_string(),
+                        right: Box::new(Node::IntegerLiteral { value: 5 }),
+                    })),
+                };
+                assert_eq!(stmt, ident);
+                assert_eq!(stmt.token_literal(), "+".to_string());
 
-        let mut iter = program.statements.into_iter();
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::InfixExpression {
-                left: Box::new(Node::IntegerLiteral { value: 5 }),
-                operator: "+".to_string(),
-                right: Box::new(Node::IntegerLiteral { value: 5 }),
-            })),
-        };
-        assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "+".to_string());
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::InfixExpression {
+                        left: Box::new(Node::IntegerLiteral { value: 5 }),
+                        operator: "-".to_string(),
+                        right: Box::new(Node::IntegerLiteral { value: 5 }),
+                    })),
+                };
+                assert_eq!(stmt, ident);
+                assert_eq!(stmt.token_literal(), "-".to_string());
 
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::InfixExpression {
-                left: Box::new(Node::IntegerLiteral { value: 5 }),
-                operator: "-".to_string(),
-                right: Box::new(Node::IntegerLiteral { value: 5 }),
-            })),
-        };
-        assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "-".to_string());
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::InfixExpression {
+                        left: Box::new(Node::IntegerLiteral { value: 5 }),
+                        operator: "*".to_string(),
+                        right: Box::new(Node::IntegerLiteral { value: 5 }),
+                    })),
+                };
+                assert_eq!(stmt, ident);
+                assert_eq!(stmt.token_literal(), "*".to_string());
 
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::InfixExpression {
-                left: Box::new(Node::IntegerLiteral { value: 5 }),
-                operator: "*".to_string(),
-                right: Box::new(Node::IntegerLiteral { value: 5 }),
-            })),
-        };
-        assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "*".to_string());
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::InfixExpression {
+                        left: Box::new(Node::IntegerLiteral { value: 5 }),
+                        operator: "/".to_string(),
+                        right: Box::new(Node::IntegerLiteral { value: 5 }),
+                    })),
+                };
+                assert_eq!(stmt, ident);
+                assert_eq!(stmt.token_literal(), "/".to_string());
 
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::InfixExpression {
-                left: Box::new(Node::IntegerLiteral { value: 5 }),
-                operator: "/".to_string(),
-                right: Box::new(Node::IntegerLiteral { value: 5 }),
-            })),
-        };
-        assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "/".to_string());
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::InfixExpression {
+                        left: Box::new(Node::IntegerLiteral { value: 5 }),
+                        operator: ">".to_string(),
+                        right: Box::new(Node::IntegerLiteral { value: 5 }),
+                    })),
+                };
+                assert_eq!(stmt, ident);
+                assert_eq!(stmt.token_literal(), ">".to_string());
 
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::InfixExpression {
-                left: Box::new(Node::IntegerLiteral { value: 5 }),
-                operator: ">".to_string(),
-                right: Box::new(Node::IntegerLiteral { value: 5 }),
-            })),
-        };
-        assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), ">".to_string());
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::InfixExpression {
+                        left: Box::new(Node::IntegerLiteral { value: 5 }),
+                        operator: "<".to_string(),
+                        right: Box::new(Node::IntegerLiteral { value: 5 }),
+                    })),
+                };
+                assert_eq!(stmt, ident);
+                assert_eq!(stmt.token_literal(), "<".to_string());
 
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::InfixExpression {
-                left: Box::new(Node::IntegerLiteral { value: 5 }),
-                operator: "<".to_string(),
-                right: Box::new(Node::IntegerLiteral { value: 5 }),
-            })),
-        };
-        assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "<".to_string());
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::InfixExpression {
+                        left: Box::new(Node::IntegerLiteral { value: 5 }),
+                        operator: "==".to_string(),
+                        right: Box::new(Node::IntegerLiteral { value: 5 }),
+                    })),
+                };
+                assert_eq!(stmt, ident);
+                assert_eq!(stmt.token_literal(), "==".to_string());
 
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::InfixExpression {
-                left: Box::new(Node::IntegerLiteral { value: 5 }),
-                operator: "==".to_string(),
-                right: Box::new(Node::IntegerLiteral { value: 5 }),
-            })),
-        };
-        assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "==".to_string());
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::InfixExpression {
+                        left: Box::new(Node::IntegerLiteral { value: 5 }),
+                        operator: "!=".to_string(),
+                        right: Box::new(Node::IntegerLiteral { value: 5 }),
+                    })),
+                };
+                assert_eq!(stmt, ident);
+                assert_eq!(stmt.token_literal(), "!=".to_string());
 
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::InfixExpression {
-                left: Box::new(Node::IntegerLiteral { value: 5 }),
-                operator: "!=".to_string(),
-                right: Box::new(Node::IntegerLiteral { value: 5 }),
-            })),
-        };
-        assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "!=".to_string());
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::InfixExpression {
+                        left: Box::new(Node::Boolean { value: true }),
+                        operator: "==".to_string(),
+                        right: Box::new(Node::Boolean { value: true }),
+                    })),
+                };
+                assert_eq!(stmt, ident);
+                assert_eq!(stmt.token_literal(), "==".to_string());
 
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::InfixExpression {
-                left: Box::new(Node::Boolean { value: true }),
-                operator: "==".to_string(),
-                right: Box::new(Node::Boolean { value: true }),
-            })),
-        };
-        assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "==".to_string());
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::InfixExpression {
+                        left: Box::new(Node::Boolean { value: true }),
+                        operator: "!=".to_string(),
+                        right: Box::new(Node::Boolean { value: false }),
+                    })),
+                };
+                assert_eq!(stmt, ident);
+                assert_eq!(stmt.token_literal(), "!=".to_string());
 
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::InfixExpression {
-                left: Box::new(Node::Boolean { value: true }),
-                operator: "!=".to_string(),
-                right: Box::new(Node::Boolean { value: false }),
-            })),
-        };
-        assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "!=".to_string());
-
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::InfixExpression {
-                left: Box::new(Node::Boolean { value: false }),
-                operator: "==".to_string(),
-                right: Box::new(Node::Boolean { value: false }),
-            })),
-        };
-        assert_eq!(stmt, ident);
-        assert_eq!(stmt.token_literal(), "==".to_string());
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::InfixExpression {
+                        left: Box::new(Node::Boolean { value: false }),
+                        operator: "==".to_string(),
+                        right: Box::new(Node::Boolean { value: false }),
+                    })),
+                };
+                assert_eq!(stmt, ident);
+                assert_eq!(stmt.token_literal(), "==".to_string());
+            }
+            _ => panic!("Unsupported node type"),
+        }
     }
 
     #[test]
@@ -686,22 +710,26 @@ mod tests {
         let program = parser.parse_program();
         assert!(!did_parser_fail(parser.errors));
 
-        assert_eq!(2, program.statements.len());
+        match program {
+            Node::Program { statements } => {
+                assert_eq!(2, statements.len());
+                let mut iter = statements.iter();
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::Boolean { value: true })),
+                };
+                assert_eq!(*stmt, ident);
+                assert_eq!(stmt.token_literal(), "true".to_string());
 
-        let mut iter = program.statements.iter();
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::Boolean { value: true })),
-        };
-        assert_eq!(*stmt, ident);
-        assert_eq!(stmt.token_literal(), "true".to_string());
-
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::Boolean { value: false })),
-        };
-        assert_eq!(*stmt, ident);
-        assert_eq!(stmt.token_literal(), "false".to_string());
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::Boolean { value: false })),
+                };
+                assert_eq!(*stmt, ident);
+                assert_eq!(stmt.token_literal(), "false".to_string());
+            }
+            _ => panic!("Unsupported node type"),
+        }
     }
 
     #[test]
@@ -714,33 +742,37 @@ mod tests {
         let program = parser.parse_program();
         assert!(!did_parser_fail(parser.errors));
 
-        assert_eq!(1, program.statements.len());
-
-        let mut iter = program.statements.iter();
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::IfExpression {
-                condition: Box::new(Node::InfixExpression {
-                    left: Box::new(Node::Identifier {
-                        value: Token::new(TokenType::Ident, "x".to_string()),
-                    }),
-                    operator: "<".to_string(),
-                    right: Box::new(Node::Identifier {
-                        value: Token::new(TokenType::Ident, "y".to_string()),
-                    }),
-                }),
-                consequence: Box::new(Node::BlockStatement {
-                    statements: vec![Node::ExpressionStatement {
-                        expression: Some(Box::new(Node::Identifier {
-                            value: Token::new(TokenType::Ident, "x".to_string()),
-                        })),
-                    }],
-                }),
-                alternative: None,
-            })),
-        };
-        assert_eq!(*stmt, ident);
-        assert_eq!(stmt.token_literal(), "if".to_string());
+        match program {
+            Node::Program { statements } => {
+                assert_eq!(1, statements.len());
+                let mut iter = statements.iter();
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::IfExpression {
+                        condition: Box::new(Node::InfixExpression {
+                            left: Box::new(Node::Identifier {
+                                value: Token::new(TokenType::Ident, "x".to_string()),
+                            }),
+                            operator: "<".to_string(),
+                            right: Box::new(Node::Identifier {
+                                value: Token::new(TokenType::Ident, "y".to_string()),
+                            }),
+                        }),
+                        consequence: Box::new(Node::BlockStatement {
+                            statements: vec![Node::ExpressionStatement {
+                                expression: Some(Box::new(Node::Identifier {
+                                    value: Token::new(TokenType::Ident, "x".to_string()),
+                                })),
+                            }],
+                        }),
+                        alternative: None,
+                    })),
+                };
+                assert_eq!(*stmt, ident);
+                assert_eq!(stmt.token_literal(), "if".to_string());
+            }
+            _ => panic!("Unsupported node type"),
+        }
     }
 
     #[test]
@@ -753,39 +785,43 @@ mod tests {
         let program = parser.parse_program();
         assert!(!did_parser_fail(parser.errors));
 
-        assert_eq!(1, program.statements.len());
-
-        let mut iter = program.statements.iter();
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::IfExpression {
-                condition: Box::new(Node::InfixExpression {
-                    left: Box::new(Node::Identifier {
-                        value: Token::new(TokenType::Ident, "x".to_string()),
-                    }),
-                    operator: "<".to_string(),
-                    right: Box::new(Node::Identifier {
-                        value: Token::new(TokenType::Ident, "y".to_string()),
-                    }),
-                }),
-                consequence: Box::new(Node::BlockStatement {
-                    statements: vec![Node::ExpressionStatement {
-                        expression: Some(Box::new(Node::Identifier {
-                            value: Token::new(TokenType::Ident, "x".to_string()),
+        match program {
+            Node::Program { statements } => {
+                assert_eq!(1, statements.len());
+                let mut iter = statements.iter();
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::IfExpression {
+                        condition: Box::new(Node::InfixExpression {
+                            left: Box::new(Node::Identifier {
+                                value: Token::new(TokenType::Ident, "x".to_string()),
+                            }),
+                            operator: "<".to_string(),
+                            right: Box::new(Node::Identifier {
+                                value: Token::new(TokenType::Ident, "y".to_string()),
+                            }),
+                        }),
+                        consequence: Box::new(Node::BlockStatement {
+                            statements: vec![Node::ExpressionStatement {
+                                expression: Some(Box::new(Node::Identifier {
+                                    value: Token::new(TokenType::Ident, "x".to_string()),
+                                })),
+                            }],
+                        }),
+                        alternative: Some(Box::new(Node::BlockStatement {
+                            statements: vec![Node::ExpressionStatement {
+                                expression: Some(Box::new(Node::Identifier {
+                                    value: Token::new(TokenType::Ident, "y".to_string()),
+                                })),
+                            }],
                         })),
-                    }],
-                }),
-                alternative: Some(Box::new(Node::BlockStatement {
-                    statements: vec![Node::ExpressionStatement {
-                        expression: Some(Box::new(Node::Identifier {
-                            value: Token::new(TokenType::Ident, "y".to_string()),
-                        })),
-                    }],
-                })),
-            })),
-        };
-        assert_eq!(*stmt, ident);
-        assert_eq!(stmt.token_literal(), "if".to_string());
+                    })),
+                };
+                assert_eq!(*stmt, ident);
+                assert_eq!(stmt.token_literal(), "if".to_string());
+            }
+            _ => panic!("Unsupported node type"),
+        }
     }
 
     #[test]
@@ -798,37 +834,41 @@ mod tests {
         let program = parser.parse_program();
         assert!(!did_parser_fail(parser.errors));
 
-        assert_eq!(1, program.statements.len());
-
-        let mut iter = program.statements.iter();
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::FunctionLiteral {
-                parameters: vec![
-                    Node::Identifier {
-                        value: Token::new(TokenType::Ident, "x".to_string()),
-                    },
-                    Node::Identifier {
-                        value: Token::new(TokenType::Ident, "y".to_string()),
-                    },
-                ],
-                body: Box::new(Node::BlockStatement {
-                    statements: vec![Node::ExpressionStatement {
-                        expression: Some(Box::new(Node::InfixExpression {
-                            left: Box::new(Node::Identifier {
+        match program {
+            Node::Program { statements } => {
+                assert_eq!(1, statements.len());
+                let mut iter = statements.iter();
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::FunctionLiteral {
+                        parameters: vec![
+                            Node::Identifier {
                                 value: Token::new(TokenType::Ident, "x".to_string()),
-                            }),
-                            operator: "+".to_string(),
-                            right: Box::new(Node::Identifier {
+                            },
+                            Node::Identifier {
                                 value: Token::new(TokenType::Ident, "y".to_string()),
-                            }),
-                        })),
-                    }],
-                }),
-            })),
-        };
-        assert_eq!(*stmt, ident);
-        assert_eq!(stmt.token_literal(), "function".to_string());
+                            },
+                        ],
+                        body: Box::new(Node::BlockStatement {
+                            statements: vec![Node::ExpressionStatement {
+                                expression: Some(Box::new(Node::InfixExpression {
+                                    left: Box::new(Node::Identifier {
+                                        value: Token::new(TokenType::Ident, "x".to_string()),
+                                    }),
+                                    operator: "+".to_string(),
+                                    right: Box::new(Node::Identifier {
+                                        value: Token::new(TokenType::Ident, "y".to_string()),
+                                    }),
+                                })),
+                            }],
+                        }),
+                    })),
+                };
+                assert_eq!(*stmt, ident);
+                assert_eq!(stmt.token_literal(), "function".to_string());
+            }
+            _ => panic!("Unexpected node type"),
+        }
     }
 
     #[test]
@@ -846,21 +886,24 @@ mod tests {
             let program = parser.parse_program();
             assert!(!did_parser_fail(parser.errors));
 
-            match &program.statements[0] {
-                Node::ExpressionStatement { expression } => {
-                    match *expression
-                        .clone()
-                        .expect("found empty expression statement")
-                    {
-                        Node::FunctionLiteral { parameters, .. } => {
-                            assert_eq!(parameters.len(), output.len());
-                            parameters.iter().zip(output.iter()).for_each(|(p, o)| {
-                                assert_eq!(&p.token_literal(), *o);
-                            });
+            match program {
+                Node::Program { statements } => match &statements[0] {
+                    Node::ExpressionStatement { expression } => {
+                        match *expression
+                            .clone()
+                            .expect("found empty expression statement")
+                        {
+                            Node::FunctionLiteral { parameters, .. } => {
+                                assert_eq!(parameters.len(), output.len());
+                                parameters.iter().zip(output.iter()).for_each(|(p, o)| {
+                                    assert_eq!(&p.token_literal(), *o);
+                                });
+                            }
+                            _ => panic!("Unexpected node type"),
                         }
-                        _ => panic!("Unexpected node type"),
                     }
-                }
+                    _ => panic!("Unexpected node type"),
+                },
                 _ => panic!("Unexpected node type"),
             }
         });
@@ -876,30 +919,35 @@ mod tests {
         let program = parser.parse_program();
         assert!(!did_parser_fail(parser.errors));
 
-        let mut iter = program.statements.iter();
-        let stmt = iter.next().unwrap();
-        let ident = Node::ExpressionStatement {
-            expression: Some(Box::new(Node::CallExpression {
-                function: Box::new(Node::Identifier {
-                    value: Token::new(TokenType::Ident, "add".to_string()),
-                }),
-                arguments: vec![
-                    Node::IntegerLiteral { value: 1 },
-                    Node::InfixExpression {
-                        left: Box::new(Node::IntegerLiteral { value: 2 }),
-                        operator: "*".to_string(),
-                        right: Box::new(Node::IntegerLiteral { value: 3 }),
-                    },
-                    Node::InfixExpression {
-                        left: Box::new(Node::IntegerLiteral { value: 4 }),
-                        operator: "+".to_string(),
-                        right: Box::new(Node::IntegerLiteral { value: 5 }),
-                    },
-                ],
-            })),
-        };
-        assert_eq!(*stmt, ident);
-        assert_eq!(stmt.token_literal(), "add".to_string());
+        match program {
+            Node::Program { statements } => {
+                let mut iter = statements.iter();
+                let stmt = iter.next().unwrap();
+                let ident = Node::ExpressionStatement {
+                    expression: Some(Box::new(Node::CallExpression {
+                        function: Box::new(Node::Identifier {
+                            value: Token::new(TokenType::Ident, "add".to_string()),
+                        }),
+                        arguments: vec![
+                            Node::IntegerLiteral { value: 1 },
+                            Node::InfixExpression {
+                                left: Box::new(Node::IntegerLiteral { value: 2 }),
+                                operator: "*".to_string(),
+                                right: Box::new(Node::IntegerLiteral { value: 3 }),
+                            },
+                            Node::InfixExpression {
+                                left: Box::new(Node::IntegerLiteral { value: 4 }),
+                                operator: "+".to_string(),
+                                right: Box::new(Node::IntegerLiteral { value: 5 }),
+                            },
+                        ],
+                    })),
+                };
+                assert_eq!(*stmt, ident);
+                assert_eq!(stmt.token_literal(), "add".to_string());
+            }
+            _ => panic!("Unexpected node type"),
+        }
     }
 
     #[test]
@@ -917,24 +965,27 @@ mod tests {
             let program = parser.parse_program();
             assert!(!did_parser_fail(parser.errors));
 
-            match &program.statements[0] {
-                Node::ExpressionStatement { expression } => {
-                    match *expression
-                        .clone()
-                        .expect("found empty expression statement")
-                    {
-                        Node::CallExpression {
-                            function: _,
-                            arguments,
-                        } => {
-                            assert_eq!(arguments.len(), output.len());
-                            arguments.iter().zip(output.iter()).for_each(|(a, o)| {
-                                assert_eq!(&a.token_literal(), *o);
-                            });
+            match program {
+                Node::Program { statements } => match &statements[0] {
+                    Node::ExpressionStatement { expression } => {
+                        match *expression
+                            .clone()
+                            .expect("found empty expression statement")
+                        {
+                            Node::CallExpression {
+                                function: _,
+                                arguments,
+                            } => {
+                                assert_eq!(arguments.len(), output.len());
+                                arguments.iter().zip(output.iter()).for_each(|(a, o)| {
+                                    assert_eq!(&a.token_literal(), *o);
+                                });
+                            }
+                            _ => panic!("Unexpected node type"),
                         }
-                        _ => panic!("Unexpected node type"),
                     }
-                }
+                    _ => panic!("Unexpected node type"),
+                },
                 _ => panic!("Unexpected node type"),
             }
         });

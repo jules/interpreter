@@ -3,6 +3,9 @@ use crate::tokens::Token;
 /// All types of AST nodes.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Node {
+    Program {
+        statements: Vec<Node>,
+    },
     Identifier {
         value: Token,
     },
@@ -52,6 +55,7 @@ pub enum Node {
 impl Node {
     pub fn token_literal(&self) -> String {
         match &self {
+            Node::Program { .. } => "program".to_string(),
             Node::Identifier { value } => value.v.clone(),
             Node::IntegerLiteral { value } => value.to_string(),
             Node::Boolean { value } => value.to_string(),
@@ -78,6 +82,11 @@ impl Node {
     pub fn as_string(&self) -> String {
         let mut s = String::new();
         match &self {
+            Node::Program { statements } => {
+                statements.iter().for_each(|st| {
+                    s.push_str(&st.as_string());
+                });
+            }
             Node::Identifier { value } => s.push_str(&value.v),
             Node::IntegerLiteral { value } => s.push_str(&value.to_string()),
             Node::Boolean { value } => s.push_str(&value.to_string()),
@@ -179,22 +188,6 @@ impl Node {
     }
 }
 
-#[derive(Default)]
-pub struct Program {
-    pub statements: Vec<Node>,
-}
-
-impl Program {
-    pub fn as_string(&self) -> String {
-        let mut s = String::new();
-        self.statements.iter().for_each(|st| {
-            s.push_str(&st.as_string());
-        });
-
-        s
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -202,7 +195,7 @@ mod tests {
 
     #[test]
     fn test_string() {
-        let program = Program {
+        let program = Node::Program {
             statements: vec![Node::LetStatement {
                 name: Box::new(Node::Identifier {
                     value: Token::new(TokenType::Ident, "my_var".to_string()),
