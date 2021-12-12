@@ -7,7 +7,7 @@ const FALSE: Object = Object::Boolean { value: false };
 
 pub fn eval(node: Node) -> Object {
     match node {
-        Node::Program { statements } => eval_statements(statements),
+        Node::Program { statements } => eval_program(statements),
         Node::IntegerLiteral { value: v } => Object::Integer { value: v },
         Node::Boolean { value: v } => {
             if v {
@@ -36,18 +36,47 @@ pub fn eval(node: Node) -> Object {
             let left = eval(*left);
             eval_infix_expression(operator, left, right)
         }
-        Node::BlockStatement { statements } => eval_statements(statements),
+        Node::BlockStatement { statements } => eval_block_statement(statements),
         Node::IfExpression {
             condition,
             consequence,
             alternative,
         } => eval_if_expression(*condition, *consequence, alternative),
+        Node::ReturnStatement { value } => match value {
+            Some(v) => Object::ReturnValue {
+                value: Box::new(eval(*v)),
+            },
+            None => Object::ReturnValue {
+                value: Box::new(NULL),
+            },
+        },
         _ => panic!("Unsupported object"),
     }
 }
 
-fn eval_statements(statements: Vec<Node>) -> Object {
-    statements.into_iter().fold(Object::Null, |_, s| eval(s))
+fn eval_program(statements: Vec<Node>) -> Object {
+    let mut s = Object::Null;
+    for statement in statements {
+        s = eval(statement);
+        if let Object::ReturnValue { value } = s {
+            s = *value;
+            break;
+        }
+    }
+
+    s
+}
+
+fn eval_block_statement(statements: Vec<Node>) -> Object {
+    let mut s = Object::Null;
+    for statement in statements {
+        s = eval(statement);
+        if let Object::ReturnValue { .. } = s {
+            break;
+        }
+    }
+
+    s
 }
 
 fn eval_prefix_expression(operator: String, right: Object) -> Object {
@@ -268,6 +297,28 @@ mod tests {
         table.iter().for_each(|(input, output)| {
             let object = test_eval(input.to_string());
             assert_eq!(object, *output);
+        });
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let table = vec![
+            ("return 10;".to_string(), 10),
+            ("return 10; 9;".to_string(), 10),
+            ("return 2 * 5; 9;".to_string(), 10),
+            ("9; return 2 * 5; 9;".to_string(), 10),
+            (
+                "if (10 > 1) { if (10 > 1) { return 10; } return 1; };".to_string(),
+                10,
+            ),
+        ];
+
+        table.iter().for_each(|(input, output)| {
+            let object = test_eval(input.to_string());
+            match object {
+                Object::Integer { value } => assert_eq!(value, *output),
+                _ => panic!("Unexpected object"),
+            }
         });
     }
 
