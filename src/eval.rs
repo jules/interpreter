@@ -36,6 +36,12 @@ pub fn eval(node: Node) -> Object {
             let left = eval(*left);
             eval_infix_expression(operator, left, right)
         }
+        Node::BlockStatement { statements } => eval_statements(statements),
+        Node::IfExpression {
+            condition,
+            consequence,
+            alternative,
+        } => eval_if_expression(*condition, *consequence, alternative),
         _ => panic!("Unsupported object"),
     }
 }
@@ -73,6 +79,22 @@ fn eval_infix_expression(operator: String, left: Object, right: Object) -> Objec
             _ => NULL,
         },
         _ => NULL,
+    }
+}
+
+fn eval_if_expression(
+    condition: Node,
+    consequence: Node,
+    alternative: Option<Box<Node>>,
+) -> Object {
+    let condition = eval(condition);
+
+    if is_truthy(condition) {
+        eval(consequence)
+    } else if alternative.is_some() {
+        eval(*alternative.unwrap())
+    } else {
+        NULL
     }
 }
 
@@ -119,6 +141,15 @@ fn eval_integer_infix_expression(operator: String, left: i64, right: i64) -> Obj
             value: left != right,
         },
         _ => NULL,
+    }
+}
+
+fn is_truthy(condition: Object) -> bool {
+    match condition {
+        NULL => false,
+        TRUE => true,
+        FALSE => false,
+        _ => true,
     }
 }
 
@@ -207,6 +238,36 @@ mod tests {
                 Object::Boolean { value } => assert_eq!(value, *output),
                 _ => panic!("Unexpected object"),
             }
+        });
+    }
+
+    #[test]
+    fn test_if_else_expressions() {
+        let table = vec![
+            (
+                "if (true) { 10 };".to_string(),
+                Object::Integer { value: 10 },
+            ),
+            ("if (false) { 10 };".to_string(), Object::Null),
+            ("if (1) { 10 };".to_string(), Object::Integer { value: 10 }),
+            (
+                "if (1 < 2) { 10 };".to_string(),
+                Object::Integer { value: 10 },
+            ),
+            ("if (1 > 2) { 10 };".to_string(), Object::Null),
+            (
+                "if (1 > 2) { 10 } else { 20 };".to_string(),
+                Object::Integer { value: 20 },
+            ),
+            (
+                "if (1 < 2) { 10 } else { 20 };".to_string(),
+                Object::Integer { value: 10 },
+            ),
+        ];
+
+        table.iter().for_each(|(input, output)| {
+            let object = test_eval(input.to_string());
+            assert_eq!(object, *output);
         });
     }
 

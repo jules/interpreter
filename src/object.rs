@@ -1,4 +1,4 @@
-#[derive(PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Object {
     Integer { value: i64 },
     Boolean { value: bool },
