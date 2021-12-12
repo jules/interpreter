@@ -25,6 +25,10 @@ pub fn eval(node: Node) -> Object {
         }
         Node::PrefixExpression { operator, right } => {
             let right = eval(*right);
+            if is_error(right.clone()) {
+                return right;
+            }
+
             eval_prefix_expression(operator, right)
         }
         Node::InfixExpression {
@@ -33,7 +37,15 @@ pub fn eval(node: Node) -> Object {
             right,
         } => {
             let right = eval(*right);
+            if is_error(right.clone()) {
+                return right;
+            }
+
             let left = eval(*left);
+            if is_error(left.clone()) {
+                return left;
+            }
+
             eval_infix_expression(operator, left, right)
         }
         Node::BlockStatement { statements } => eval_block_statement(statements),
@@ -43,9 +55,16 @@ pub fn eval(node: Node) -> Object {
             alternative,
         } => eval_if_expression(*condition, *consequence, alternative),
         Node::ReturnStatement { value } => match value {
-            Some(v) => Object::ReturnValue {
-                value: Box::new(eval(*v)),
-            },
+            Some(v) => {
+                let evaluated = eval(*v.clone());
+                if is_error(evaluated.clone()) {
+                    return evaluated;
+                }
+
+                Object::ReturnValue {
+                    value: Box::new(eval(*v)),
+                }
+            }
             None => Object::ReturnValue {
                 value: Box::new(NULL),
             },
@@ -139,6 +158,9 @@ fn eval_if_expression(
     alternative: Option<Box<Node>>,
 ) -> Object {
     let condition = eval(condition);
+    if is_error(condition.clone()) {
+        return condition;
+    }
 
     if is_truthy(condition) {
         eval(consequence)
@@ -209,6 +231,14 @@ fn is_truthy(condition: Object) -> bool {
         TRUE => true,
         FALSE => false,
         _ => true,
+    }
+}
+
+fn is_error(object: Object) -> bool {
+    if let Object::Error { .. } = object {
+        true
+    } else {
+        false
     }
 }
 
