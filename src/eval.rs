@@ -92,6 +92,18 @@ fn eval_integer_infix_expression(operator: String, left: i64, right: i64) -> Obj
         "/" => Object::Integer {
             value: left / right,
         },
+        "<" => Object::Boolean {
+            value: left < right,
+        },
+        ">" => Object::Boolean {
+            value: left > right,
+        },
+        "==" => Object::Boolean {
+            value: left == right,
+        },
+        "!=" => Object::Boolean {
+            value: left != right,
+        },
         _ => NULL,
     }
 }
@@ -133,7 +145,18 @@ mod tests {
 
     #[test]
     fn test_eval_boolean_expression() {
-        let table = vec![("true;".to_string(), true), ("false;".to_string(), false)];
+        let table = vec![
+            ("true;".to_string(), true),
+            ("false;".to_string(), false),
+            ("1 < 2;".to_string(), true),
+            ("1 > 2;".to_string(), false),
+            ("1 < 1;".to_string(), false),
+            ("1 > 1;".to_string(), false),
+            ("1 == 1;".to_string(), true),
+            ("1 != 1;".to_string(), false),
+            ("1 == 2;".to_string(), false),
+            ("1 != 2;".to_string(), true),
+        ];
 
         table.iter().for_each(|(input, output)| {
             let object = test_eval(input.to_string());
