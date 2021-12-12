@@ -27,6 +27,15 @@ pub fn eval(node: Node) -> Object {
             let right = eval(*right);
             eval_prefix_expression(operator, right)
         }
+        Node::InfixExpression {
+            left,
+            operator,
+            right,
+        } => {
+            let right = eval(*right);
+            let left = eval(*left);
+            eval_infix_expression(operator, left, right)
+        }
         _ => panic!("Unsupported object"),
     }
 }
@@ -39,6 +48,16 @@ fn eval_prefix_expression(operator: String, right: Object) -> Object {
     match operator.as_str() {
         "!" => eval_bang_operator_expression(right),
         "-" => eval_minus_operator_expression(right),
+        _ => NULL,
+    }
+}
+
+fn eval_infix_expression(operator: String, left: Object, right: Object) -> Object {
+    match left {
+        Object::Integer { value: v1 } => match right {
+            Object::Integer { value: v2 } => eval_integer_infix_expression(operator, v1, v2),
+            _ => NULL,
+        },
         _ => NULL,
     }
 }
@@ -59,6 +78,24 @@ fn eval_minus_operator_expression(right: Object) -> Object {
     }
 }
 
+fn eval_integer_infix_expression(operator: String, left: i64, right: i64) -> Object {
+    match operator.as_str() {
+        "+" => Object::Integer {
+            value: left + right,
+        },
+        "-" => Object::Integer {
+            value: left - right,
+        },
+        "*" => Object::Integer {
+            value: left * right,
+        },
+        "/" => Object::Integer {
+            value: left / right,
+        },
+        _ => NULL,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -72,6 +109,17 @@ mod tests {
             ("10;".to_string(), 10),
             ("-5;".to_string(), -5),
             ("-10;".to_string(), -10),
+            ("5 + 5 + 5 + 5 - 10;".to_string(), 10),
+            ("2 * 2 * 2 * 2 * 2;".to_string(), 32),
+            ("-50 + 100 + -50;".to_string(), 0),
+            ("5 * 2 + 10;".to_string(), 20),
+            ("5 + 2 * 10;".to_string(), 25),
+            ("20 + 2 * -10;".to_string(), 0),
+            ("50 / 2 * 2 + 10;".to_string(), 60),
+            ("2 * (5 + 10);".to_string(), 30),
+            ("3 * 3 * 3 + 10;".to_string(), 37),
+            ("3 * (3 * 3) + 10;".to_string(), 37),
+            ("(5 + 10 * 2 + 15 / 3) * 2 + -10;".to_string(), 50),
         ];
 
         table.iter().for_each(|(input, output)| {
