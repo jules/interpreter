@@ -38,6 +38,7 @@ fn eval_statements(statements: Vec<Node>) -> Object {
 fn eval_prefix_expression(operator: String, right: Object) -> Object {
     match operator.as_str() {
         "!" => eval_bang_operator_expression(right),
+        "-" => eval_minus_operator_expression(right),
         _ => NULL,
     }
 }
@@ -51,6 +52,13 @@ fn eval_bang_operator_expression(right: Object) -> Object {
     }
 }
 
+fn eval_minus_operator_expression(right: Object) -> Object {
+    match right {
+        Object::Integer { value } => Object::Integer { value: -value },
+        _ => NULL,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -59,7 +67,12 @@ mod tests {
 
     #[test]
     fn test_eval_integer_expression() {
-        let table = vec![("5;".to_string(), 5), ("10;".to_string(), 10)];
+        let table = vec![
+            ("5;".to_string(), 5),
+            ("10;".to_string(), 10),
+            ("-5;".to_string(), -5),
+            ("-10;".to_string(), -10),
+        ];
 
         table.iter().for_each(|(input, output)| {
             let object = test_eval(input.to_string());
