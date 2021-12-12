@@ -53,6 +53,20 @@ fn eval_prefix_expression(operator: String, right: Object) -> Object {
 }
 
 fn eval_infix_expression(operator: String, left: Object, right: Object) -> Object {
+    match operator.as_str() {
+        "==" => {
+            return Object::Boolean {
+                value: left == right,
+            }
+        }
+        "!=" => {
+            return Object::Boolean {
+                value: left != right,
+            }
+        }
+        _ => {}
+    };
+
     match left {
         Object::Integer { value: v1 } => match right {
             Object::Integer { value: v2 } => eval_integer_infix_expression(operator, v1, v2),
@@ -156,6 +170,15 @@ mod tests {
             ("1 != 1;".to_string(), false),
             ("1 == 2;".to_string(), false),
             ("1 != 2;".to_string(), true),
+            ("true == true;".to_string(), true),
+            ("false == false;".to_string(), true),
+            ("true == false;".to_string(), false),
+            ("true != false;".to_string(), true),
+            ("false != true;".to_string(), true),
+            ("(1 < 2) == true;".to_string(), true),
+            ("(1 < 2) == false;".to_string(), false),
+            ("(1 > 2) == true;".to_string(), false),
+            ("(1 > 2) == false;".to_string(), true),
         ];
 
         table.iter().for_each(|(input, output)| {
