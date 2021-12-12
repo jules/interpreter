@@ -58,9 +58,14 @@ fn eval_program(statements: Vec<Node>) -> Object {
     let mut s = Object::Null;
     for statement in statements {
         s = eval(statement);
-        if let Object::ReturnValue { value } = s {
-            s = *value;
-            break;
+        match s {
+            Object::ReturnValue { value } => {
+                return *value;
+            }
+            Object::Error { .. } => {
+                break;
+            }
+            _ => {}
         }
     }
 
@@ -71,7 +76,7 @@ fn eval_block_statement(statements: Vec<Node>) -> Object {
     let mut s = Object::Null;
     for statement in statements {
         s = eval(statement);
-        if let Object::ReturnValue { .. } = s {
+        if matches!(s, Object::ReturnValue { .. }) || matches!(s, Object::Error { .. }) {
             break;
         }
     }
@@ -83,31 +88,48 @@ fn eval_prefix_expression(operator: String, right: Object) -> Object {
     match operator.as_str() {
         "!" => eval_bang_operator_expression(right),
         "-" => eval_minus_operator_expression(right),
-        _ => NULL,
+        _ => Object::Error {
+            value: format!("unknown operator: {}{}", operator, right.name()),
+        },
     }
 }
 
 fn eval_infix_expression(operator: String, left: Object, right: Object) -> Object {
-    match operator.as_str() {
-        "==" => {
+    match (left.clone(), operator.as_str(), right.clone()) {
+        (Object::Integer { value: v1 }, _, Object::Integer { value: v2 }) => {
+            eval_integer_infix_expression(operator, v1, v2)
+        }
+        (_, "==", _) => {
             return Object::Boolean {
                 value: left == right,
             }
         }
-        "!=" => {
+        (_, "!=", _) => {
             return Object::Boolean {
                 value: left != right,
             }
         }
-        _ => {}
-    };
-
-    match left {
-        Object::Integer { value: v1 } => match right {
-            Object::Integer { value: v2 } => eval_integer_infix_expression(operator, v1, v2),
-            _ => NULL,
-        },
-        _ => NULL,
+        _ => {
+            if left.name() != right.name() {
+                return Object::Error {
+                    value: format!(
+                        "type mismatch: {} {} {}",
+                        left.name(),
+                        operator,
+                        right.name()
+                    ),
+                };
+            } else {
+                return Object::Error {
+                    value: format!(
+                        "unknown operator: {} {} {}",
+                        left.name(),
+                        operator,
+                        right.name()
+                    ),
+                };
+            }
+        }
     }
 }
 
@@ -139,7 +161,11 @@ fn eval_bang_operator_expression(right: Object) -> Object {
 fn eval_minus_operator_expression(right: Object) -> Object {
     match right {
         Object::Integer { value } => Object::Integer { value: -value },
-        _ => NULL,
+        _ => {
+            return Object::Error {
+                value: format!("unknown operator: -{}", right.name()),
+            }
+        }
     }
 }
 
@@ -169,7 +195,11 @@ fn eval_integer_infix_expression(operator: String, left: i64, right: i64) -> Obj
         "!=" => Object::Boolean {
             value: left != right,
         },
-        _ => NULL,
+        _ => {
+            return Object::Error {
+                value: format!("unknown operator: INTEGER {} INTEGER", operator),
+            }
+        }
     }
 }
 
@@ -245,7 +275,7 @@ mod tests {
             let object = test_eval(input.to_string());
             match object {
                 Object::Boolean { value } => assert_eq!(value, *output),
-                _ => panic!("Unexpected object"),
+                _ => panic!("Unexpected object, {:?}", object),
             }
         });
     }
@@ -317,6 +347,42 @@ mod tests {
             let object = test_eval(input.to_string());
             match object {
                 Object::Integer { value } => assert_eq!(value, *output),
+                _ => panic!("Unexpected object"),
+            }
+        });
+    }
+
+    #[test]
+    fn test_error_handling() {
+        let table = vec![
+            ("5 + true;".to_string(), "type mismatch: INTEGER + BOOLEAN"),
+            (
+                "5 + true; 5;".to_string(),
+                "type mismatch: INTEGER + BOOLEAN",
+            ),
+            ("-true;".to_string(), "unknown operator: -BOOLEAN"),
+            (
+                "true + false;".to_string(),
+                "unknown operator: BOOLEAN + BOOLEAN",
+            ),
+            (
+                "5; true + false; 5;".to_string(),
+                "unknown operator: BOOLEAN + BOOLEAN",
+            ),
+            (
+                "if (10 > 1) { true + false; };".to_string(),
+                "unknown operator: BOOLEAN + BOOLEAN",
+            ),
+            (
+                "if (10 > 1) { if (10 > 1) { return true + false; } return 1; };".to_string(),
+                "unknown operator: BOOLEAN + BOOLEAN",
+            ),
+        ];
+
+        table.iter().for_each(|(input, output)| {
+            let object = test_eval(input.to_string());
+            match object {
+                Object::Error { value } => assert_eq!(value, *output),
                 _ => panic!("Unexpected object"),
             }
         });
