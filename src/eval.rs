@@ -82,7 +82,29 @@ pub fn eval(node: Node, environment: &mut Environment) -> Object {
             NULL
         }
         Node::Identifier { value } => eval_identifier(value.v, environment),
-        _ => panic!("Unsupported object"),
+        Node::FunctionLiteral {
+            parameters, body, ..
+        } => Object::Function {
+            parameters,
+            body: *body,
+            env: environment.clone(),
+        },
+        Node::CallExpression {
+            function,
+            arguments,
+        } => {
+            let function = eval(*function, environment);
+            if is_error(function.clone()) {
+                return function;
+            }
+
+            let args = eval_expressions(arguments, environment);
+            if args.len() > 0 && is_error(args[0].clone()) {
+                return args[0].clone();
+            }
+
+            apply_function(function, args)
+        }
     }
 }
 
@@ -240,11 +262,59 @@ fn eval_integer_infix_expression(operator: String, left: i64, right: i64) -> Obj
 }
 
 fn eval_identifier(name: String, environment: &mut Environment) -> Object {
-    match environment.storage.get(&name) {
+    match environment.get(&name) {
         Some(v) => v.clone(),
         None => Object::Error {
             value: format!("identifier not found: {}", name),
         },
+    }
+}
+
+fn eval_expressions(expressions: Vec<Node>, env: &mut Environment) -> Vec<Object> {
+    let mut result = vec![];
+
+    for e in expressions {
+        let evaluated = eval(e, env);
+        if is_error(evaluated.clone()) {
+            return vec![evaluated];
+        }
+
+        result.push(evaluated);
+    }
+
+    result
+}
+
+fn apply_function(function: Object, args: Vec<Object>) -> Object {
+    match function {
+        Object::Function {
+            parameters,
+            body,
+            env,
+        } => {
+            let mut extended_env = create_function_env(parameters, args, env);
+            let evaluated = eval(body, &mut extended_env);
+            unwrap_return_value(evaluated)
+        }
+        _ => Object::Error {
+            value: format!("not a function: {}", function.name()),
+        },
+    }
+}
+
+fn create_function_env(parameters: Vec<Node>, args: Vec<Object>, env: Environment) -> Environment {
+    let mut enclosed_env = Environment::new_enclosed(env);
+    parameters.iter().zip(args.iter()).for_each(|(p, a)| {
+        enclosed_env.storage.insert(p.as_string(), a.clone());
+    });
+
+    enclosed_env
+}
+
+fn unwrap_return_value(evaluated: Object) -> Object {
+    match evaluated {
+        Object::ReturnValue { value } => *value,
+        _ => evaluated,
     }
 }
 
@@ -452,6 +522,52 @@ mod tests {
                 "let a = 5; let b = a; let c = a + b + 5; c;".to_string(),
                 15,
             ),
+        ];
+
+        table.iter().for_each(|(input, output)| {
+            let object = test_eval(input.to_string());
+            match object {
+                Object::Integer { value } => assert_eq!(value, *output),
+                _ => panic!("Unexpected object"),
+            }
+        });
+    }
+
+    #[test]
+    fn test_function_object() {
+        let input = String::from("fn(x) { x + 2; };");
+
+        let evaluated = test_eval(input);
+        match evaluated {
+            Object::Function {
+                parameters, body, ..
+            } => {
+                assert_eq!(1, parameters.len());
+                assert_eq!("x", parameters[0].as_string());
+                assert_eq!("(x + 2);", body.as_string());
+            }
+            _ => {
+                println!("{:?}", evaluated);
+                panic!("Unexpected object");
+            }
+        };
+    }
+
+    #[test]
+    fn test_function_application() {
+        let table = vec![
+            ("let identity = fn(x) { x; }; identity(5);".to_string(), 5),
+            (
+                "let identity = fn(x) { return x; }; identity(5);".to_string(),
+                5,
+            ),
+            ("let double = fn(x) { x * 2; }; double(5);".to_string(), 10),
+            ("let add = fn(x, y) { x + y; }; add(5, 5);".to_string(), 10),
+            (
+                "let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));".to_string(),
+                20,
+            ),
+            ("fn(x) { x; }(5)".to_string(), 5),
         ];
 
         table.iter().for_each(|(input, output)| {

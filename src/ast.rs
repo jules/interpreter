@@ -59,7 +59,7 @@ impl Node {
             Node::Identifier { value } => value.v.clone(),
             Node::IntegerLiteral { value } => value.to_string(),
             Node::Boolean { value } => value.to_string(),
-            Node::FunctionLiteral { .. } => "function".to_string(),
+            Node::FunctionLiteral { .. } => "fn".to_string(),
             Node::PrefixExpression { operator, .. } => operator.clone(),
             Node::InfixExpression {
                 left: _, operator, ..

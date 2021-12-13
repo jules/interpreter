@@ -826,7 +826,7 @@ mod tests {
 
     #[test]
     fn test_function_literal_parsing() {
-        let input = "function(x, y) { x + y; };";
+        let input = "fn(x, y) { x + y; };";
 
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
@@ -865,7 +865,7 @@ mod tests {
                     })),
                 };
                 assert_eq!(*stmt, ident);
-                assert_eq!(stmt.token_literal(), "function".to_string());
+                assert_eq!(stmt.token_literal(), "fn".to_string());
             }
             _ => panic!("Unexpected node type"),
         }
@@ -874,9 +874,9 @@ mod tests {
     #[test]
     fn test_function_parameter_parsing() {
         let table = vec![
-            ("function() {};", vec![]),
-            ("function(x) {};", vec!["x"]),
-            ("function(x, y) {};", vec!["x", "y"]),
+            ("fn() {};", vec![]),
+            ("fn(x) {};", vec!["x"]),
+            ("fn(x, y) {};", vec!["x", "y"]),
         ];
 
         table.iter().for_each(|(input, output)| {

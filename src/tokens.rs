@@ -57,7 +57,7 @@ impl Token {
 impl From<&str> for Token {
     fn from(value: &str) -> Self {
         match value {
-            "function" => Token {
+            "fn" => Token {
                 t: TokenType::Function,
                 v: value.into(),
             },

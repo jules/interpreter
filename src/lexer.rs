@@ -117,7 +117,7 @@ mod tests {
         let input = "let five = 5;
         let ten = 10;
 
-        let add = function(x, y) {
+        let add = fn(x, y) {
             x + y;
         };
 
@@ -164,7 +164,7 @@ mod tests {
             Token::new(TokenType::Let, String::from("let")),
             Token::new(TokenType::Ident, String::from("add")),
             Token::new(TokenType::Assign, String::from("=")),
-            Token::new(TokenType::Function, String::from("function")),
+            Token::new(TokenType::Function, String::from("fn")),
             Token::new(TokenType::LParen, String::from("(")),
             Token::new(TokenType::Ident, String::from("x")),
             Token::new(TokenType::Comma, String::from(",")),
