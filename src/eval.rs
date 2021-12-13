@@ -168,23 +168,23 @@ fn eval_infix_expression(operator: String, left: Object, right: Object) -> Objec
         },
         _ => {
             if left.name() != right.name() {
-                return Object::Error {
+                Object::Error {
                     value: format!(
                         "type mismatch: {} {} {}",
                         left.name(),
                         operator,
                         right.name()
                     ),
-                };
+                }
             } else {
-                return Object::Error {
+                Object::Error {
                     value: format!(
                         "unknown operator: {} {} {}",
                         left.name(),
                         operator,
                         right.name()
                     ),
-                };
+                }
             }
         }
     }
