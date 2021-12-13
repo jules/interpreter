@@ -10,6 +10,8 @@ const NULL: Object = Object::Null;
 const TRUE: Object = Object::Boolean { value: true };
 const FALSE: Object = Object::Boolean { value: false };
 
+/// Evaluates an AST node. This function eventually resolves into an Object, which
+/// represents the result of the evaluation call.
 pub fn eval(node: Node, environment: &mut Environment) -> Object {
     match node {
         Node::Program { statements } => eval_program(statements, environment),
@@ -81,7 +83,7 @@ pub fn eval(node: Node, environment: &mut Environment) -> Object {
                     return val;
                 }
 
-                environment.storage.insert((*name).as_string(), val);
+                environment.set((*name).as_string(), val);
             }
 
             NULL
@@ -306,7 +308,7 @@ fn apply_function(function: Object, args: Vec<Object>) -> Object {
 fn create_function_env(parameters: Vec<Node>, args: Vec<Object>, env: Environment) -> Environment {
     let mut enclosed_env = Environment::new_enclosed(env);
     parameters.iter().zip(args.iter()).for_each(|(p, a)| {
-        enclosed_env.storage.insert(p.as_string(), a.clone());
+        enclosed_env.set(p.as_string(), a.clone());
     });
 
     enclosed_env

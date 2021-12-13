@@ -2,6 +2,8 @@ use crate::ast::Node;
 use crate::lexer::Lexer;
 use crate::tokens::{Token, TokenType};
 
+/// The different types of operator precedence that can be encountered while
+/// parsing multi-layered expressions.
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Precedence {
     Lowest,
@@ -13,6 +15,7 @@ pub enum Precedence {
     Call,
 }
 
+/// All the possible errors that can be encountered by the parser.
 #[derive(Debug)]
 pub enum ParserError {
     TokenUnrecognized,
@@ -25,6 +28,13 @@ pub enum ParserError {
     IncorrectFunctionDeclaration,
 }
 
+/// The parser for our programming language. The parser uses a lexer to create
+/// a tokenized version of the input string, which it can then use to construct
+/// an AST.
+///
+/// This is an implementation of a Pratt parser, or a "top down operator precedence"
+/// parser. It parses by means of recursive descent, and thus does not need to
+/// backtrack.
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
     curr_token: Token,
@@ -33,6 +43,8 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    /// Creates a new parser and provides it with a pre-initialized lexer.
+    /// NOTE: This function will load in the first two tokens before returning.
     pub fn new(lexer: Lexer<'a>) -> Parser<'a> {
         let mut parser = Self {
             lexer,
@@ -46,6 +58,8 @@ impl<'a> Parser<'a> {
         parser
     }
 
+    /// Parse a full program. This will basically consume tokens from the lexer
+    /// until it is fully exhausted, or until an error is encountered.
     pub fn parse_program(&mut self) -> Node {
         let mut statements = vec![];
 

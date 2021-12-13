@@ -4,6 +4,7 @@ use crate::lexer::Lexer;
 use crate::parser::Parser;
 use std::io::{self, Write};
 
+/// Start the REPL.
 pub fn start() {
     let mut environment = Environment::new();
 

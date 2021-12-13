@@ -53,6 +53,7 @@ pub enum Node {
 }
 
 impl Node {
+    /// Returns the token literal for an AST node.
     pub fn token_literal(&self) -> String {
         match &self {
             Node::Program { .. } => "program".to_string(),
@@ -79,6 +80,7 @@ impl Node {
         }
     }
 
+    /// Returns the string representation of an AST node.
     pub fn as_string(&self) -> String {
         match &self {
             Node::Program { statements } => statements

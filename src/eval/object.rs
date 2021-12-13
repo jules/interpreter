@@ -1,6 +1,8 @@
 use super::Environment;
 use crate::ast::Node;
 
+/// All types of language objects. These are resolved from AST nodes, and represent
+/// any kind of evaluated input.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Object {
     Integer {
@@ -24,6 +26,7 @@ pub enum Object {
 }
 
 impl Object {
+    /// Returns the string representation of an Object.
     pub fn inspect(&self) -> String {
         match self {
             Object::Integer { value } => format!("{}", value),
@@ -49,6 +52,7 @@ impl Object {
         }
     }
 
+    /// Returns the proper name for an Object, as a string.
     pub fn name(&self) -> String {
         match self {
             Object::Integer { .. } => "INTEGER".to_string(),

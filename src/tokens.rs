@@ -1,3 +1,4 @@
+/// All the possible tokens that can be created by the lexer.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum TokenType {
     Illegal,
@@ -49,6 +50,7 @@ pub struct Token {
 }
 
 impl Token {
+    /// Creates a new Token with the given type and string value.
     pub fn new(t: TokenType, v: String) -> Self {
         Self { t, v }
     }

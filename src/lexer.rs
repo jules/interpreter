@@ -2,18 +2,23 @@ use crate::tokens::{Token, TokenType};
 use std::iter::Peekable;
 use std::str::Chars;
 
+/// The lexer for our programming language. This struct basically transforms
+/// text input into a series of tokens which make it easier to parse whatever
+/// is being interpreted.
 pub struct Lexer<'a> {
     pub input: Peekable<Chars<'a>>,
     pub ch: char,
 }
 
 impl<'a> Lexer<'a> {
+    /// Creates a new lexer and initialize it with an input string.
     pub fn new(input_string: &'a str) -> Self {
         let mut input = input_string.chars().peekable();
         let initial = input.next().unwrap();
         Self { input, ch: initial }
     }
 
+    /// Consumes characters from the input string to create the next token.
     pub fn next_token(&mut self) -> Token {
         self.eat_whitespace();
 
