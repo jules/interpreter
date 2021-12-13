@@ -1,5 +1,10 @@
 use crate::ast::Node;
-use crate::object::{Environment, Object};
+
+pub mod environment;
+pub mod object;
+
+pub use environment::Environment;
+use object::Object;
 
 const NULL: Object = Object::Null;
 const TRUE: Object = Object::Boolean { value: true };

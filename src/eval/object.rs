@@ -1,5 +1,5 @@
+use super::Environment;
 use crate::ast::Node;
-use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Object {
@@ -64,41 +64,6 @@ impl Object {
             Object::Error { .. } => "ERROR".to_string(),
             Object::Function { .. } => "FUNCTION".to_string(),
             Object::Null { .. } => "NULL".to_string(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Environment {
-    pub storage: HashMap<String, Object>,
-    pub outer: Option<Box<Environment>>,
-}
-
-impl Environment {
-    pub fn new() -> Self {
-        Self {
-            storage: HashMap::new(),
-            outer: None,
-        }
-    }
-
-    pub fn new_enclosed(env: Environment) -> Self {
-        Self {
-            storage: HashMap::new(),
-            outer: Some(Box::new(env)),
-        }
-    }
-
-    pub fn get(&self, k: &String) -> Option<Object> {
-        match self.storage.get(k) {
-            Some(v) => Some(v.clone()),
-            None => {
-                if self.outer.is_some() {
-                    return self.outer.as_ref().unwrap().get(k);
-                }
-
-                None
-            }
         }
     }
 }

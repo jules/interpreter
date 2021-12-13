@@ -1,6 +1,6 @@
 use crate::eval::eval;
+use crate::eval::Environment;
 use crate::lexer::Lexer;
-use crate::object::Environment;
 use crate::parser::Parser;
 use std::io::{self, Write};
 
