@@ -30,27 +30,20 @@ impl Object {
             Object::Boolean { value } => format!("{}", value),
             Object::ReturnValue { value } => (*value.inspect()).to_string(),
             Object::Error { value } => {
-                let mut e = String::from("ERROR: ");
-                e.push_str(value);
-                e
+                format!("ERROR: {}", value)
             }
             Object::Function {
                 parameters, body, ..
             } => {
-                let mut s = String::new();
-
-                let mut params = vec![];
-                parameters.iter().for_each(|p| {
-                    params.push(p.as_string());
-                });
-
-                s.push_str("fn(");
-                s.push_str(&params.join(", "));
-                s.push_str(") {\n");
-                s.push_str(&body.as_string());
-                s.push_str("\n}");
-
-                s
+                format!(
+                    "fn({}) {{\n{}\n}}",
+                    parameters
+                        .iter()
+                        .map(|p| p.as_string())
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    &body.as_string()
+                )
             }
             Object::Null => String::from("null"),
         }

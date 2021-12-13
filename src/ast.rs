@@ -80,111 +80,108 @@ impl Node {
     }
 
     pub fn as_string(&self) -> String {
-        let mut s = String::new();
         match &self {
-            Node::Program { statements } => {
-                statements.iter().for_each(|st| {
-                    s.push_str(&st.as_string());
-                });
-            }
-            Node::Identifier { value } => s.push_str(&value.v),
-            Node::IntegerLiteral { value } => s.push_str(&value.to_string()),
-            Node::Boolean { value } => s.push_str(&value.to_string()),
+            Node::Program { statements } => statements
+                .iter()
+                .map(|st| st.as_string())
+                .collect::<Vec<String>>()
+                .join(""),
+            Node::Identifier { value } => value.v.clone(),
+            Node::IntegerLiteral { value } => value.to_string(),
+            Node::Boolean { value } => value.to_string(),
             Node::FunctionLiteral { parameters, body } => {
-                s.push_str("fn(");
-                s.push_str(
+                format!(
+                    "fn({}) {}",
                     &parameters
                         .iter()
                         .map(|p| p.as_string())
                         .collect::<Vec<String>>()
                         .join(", "),
-                );
-                s.push_str(") ");
-                s.push_str(&body.as_string());
+                    &body.as_string()
+                )
             }
             Node::PrefixExpression { operator, right } => {
-                s.push('(');
-                s.push_str(operator);
-                s.push_str(&*right.as_string());
-                s.push(')');
+                format!("({}{})", operator, &*right.as_string())
             }
             Node::InfixExpression {
                 left,
                 operator,
                 right,
             } => {
-                s.push('(');
-                s.push_str(&*left.as_string());
-                s.push(' ');
-                s.push_str(operator);
-                s.push(' ');
-                s.push_str(&*right.as_string());
-                s.push(')');
+                format!(
+                    "({} {} {})",
+                    &*left.as_string(),
+                    operator,
+                    &*right.as_string()
+                )
             }
             Node::IfExpression {
                 condition,
                 consequence,
                 alternative,
             } => {
-                s.push_str("if");
-                s.push_str(&*condition.as_string());
-                s.push(' ');
-                s.push_str(&*consequence.as_string());
+                let mut s = format!(
+                    "if {} {}",
+                    &*condition.as_string(),
+                    &*consequence.as_string()
+                );
 
                 if let Some(a) = alternative {
                     s.push_str("else ");
                     s.push_str(&a.as_string());
                 }
+
+                s
             }
             Node::CallExpression {
                 function,
                 arguments,
             } => {
-                s.push_str(&function.as_string());
-                s.push('(');
-                s.push_str(
+                format!(
+                    "{}({})",
+                    &function.as_string(),
                     &arguments
                         .iter()
                         .map(|p| p.as_string())
                         .collect::<Vec<String>>()
-                        .join(", "),
-                );
-                s.push(')');
+                        .join(", ")
+                )
             }
             Node::LetStatement { name, value } => {
-                s.push_str("let ");
-                s.push_str(&name.as_string());
+                let mut s = format!("let {}", &name.as_string());
                 if let Some(v) = value {
                     s.push_str(" = ");
                     s.push_str(&v.as_string());
                 }
 
                 s.push(';');
+                s
             }
             Node::ReturnStatement { value } => {
-                s.push_str("return");
+                let mut s = String::from("return");
                 if let Some(v) = value {
                     s.push(' ');
                     s.push_str(&v.as_string());
                 }
 
                 s.push(';');
+                s
             }
             Node::ExpressionStatement { expression } => {
+                let mut s = String::new();
                 if let Some(v) = expression {
                     s.push_str(&v.as_string());
                 }
 
                 s.push(';');
+                s
             }
-            Node::BlockStatement { statements } => {
-                statements.iter().for_each(|statement| {
-                    s.push_str(&*statement.as_string());
-                });
-            }
-        };
-
-        s
+            Node::BlockStatement { statements } => statements
+                .iter()
+                .map(|statement| statement.as_string())
+                .collect::<Vec<String>>()
+                .join(""),
+        }
     }
 }
 
