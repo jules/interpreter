@@ -20,7 +20,7 @@ pub fn start() {
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
-        if parser.errors.len() > 0 {
+        if !parser.errors.is_empty() {
             parser.errors.iter().for_each(|e| {
                 println!("{:?}", e);
             })

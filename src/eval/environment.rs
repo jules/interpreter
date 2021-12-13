@@ -7,6 +7,12 @@ pub struct Environment {
     pub outer: Option<Box<Environment>>,
 }
 
+impl Default for Environment {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Environment {
     pub fn new() -> Self {
         Self {
@@ -22,7 +28,7 @@ impl Environment {
         }
     }
 
-    pub fn get(&self, k: &String) -> Option<Object> {
+    pub fn get(&self, k: &str) -> Option<Object> {
         match self.storage.get(k) {
             Some(v) => Some(v.clone()),
             None => {

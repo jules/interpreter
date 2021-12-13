@@ -31,7 +31,7 @@ impl Object {
             Object::ReturnValue { value } => (*value.inspect()).to_string(),
             Object::Error { value } => {
                 let mut e = String::from("ERROR: ");
-                e.push_str(&value);
+                e.push_str(value);
                 e
             }
             Object::Function {

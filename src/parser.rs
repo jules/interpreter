@@ -164,7 +164,7 @@ impl<'a> Parser<'a> {
 
         self.next_token();
         Ok(Node::PrefixExpression {
-            operator: prefix_token.v.clone(),
+            operator: prefix_token.v,
             right: Box::new(self.parse_expression(Precedence::Prefix)?),
         })
     }
@@ -322,18 +322,18 @@ impl<'a> Parser<'a> {
     }
 
     fn should_keep_parsing(&mut self) -> bool {
-        match self.peek_token.t {
+        matches!(
+            self.peek_token.t,
             TokenType::Plus
-            | TokenType::Minus
-            | TokenType::Slash
-            | TokenType::Asterisk
-            | TokenType::Equal
-            | TokenType::NotEqual
-            | TokenType::LessThan
-            | TokenType::GreaterThan
-            | TokenType::LParen => true,
-            _ => false,
-        }
+                | TokenType::Minus
+                | TokenType::Slash
+                | TokenType::Asterisk
+                | TokenType::Equal
+                | TokenType::NotEqual
+                | TokenType::LessThan
+                | TokenType::GreaterThan
+                | TokenType::LParen
+        )
     }
 
     fn expect_peek(&mut self, token_type: TokenType) -> bool {

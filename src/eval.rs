@@ -75,8 +75,8 @@ pub fn eval(node: Node, environment: &mut Environment) -> Object {
             },
         },
         Node::LetStatement { name, value } => {
-            if value.is_some() {
-                let val = eval(*value.unwrap(), environment);
+            if let Some(v) = value {
+                let val = eval(*v, environment);
                 if is_error(val.clone()) {
                     return val;
                 }
@@ -104,7 +104,7 @@ pub fn eval(node: Node, environment: &mut Environment) -> Object {
             }
 
             let args = eval_expressions(arguments, environment);
-            if args.len() > 0 && is_error(args[0].clone()) {
+            if !args.is_empty() && is_error(args[0].clone()) {
                 return args[0].clone();
             }
 
@@ -158,16 +158,12 @@ fn eval_infix_expression(operator: String, left: Object, right: Object) -> Objec
         (Object::Integer { value: v1 }, _, Object::Integer { value: v2 }) => {
             eval_integer_infix_expression(operator, v1, v2)
         }
-        (_, "==", _) => {
-            return Object::Boolean {
-                value: left == right,
-            }
-        }
-        (_, "!=", _) => {
-            return Object::Boolean {
-                value: left != right,
-            }
-        }
+        (_, "==", _) => Object::Boolean {
+            value: left == right,
+        },
+        (_, "!=", _) => Object::Boolean {
+            value: left != right,
+        },
         _ => {
             if left.name() != right.name() {
                 return Object::Error {
@@ -268,7 +264,7 @@ fn eval_integer_infix_expression(operator: String, left: i64, right: i64) -> Obj
 
 fn eval_identifier(name: String, environment: &mut Environment) -> Object {
     match environment.get(&name) {
-        Some(v) => v.clone(),
+        Some(v) => v,
         None => Object::Error {
             value: format!("identifier not found: {}", name),
         },
@@ -333,11 +329,7 @@ fn is_truthy(condition: Object) -> bool {
 }
 
 fn is_error(object: Object) -> bool {
-    if let Object::Error { .. } = object {
-        true
-    } else {
-        false
-    }
+    matches!(object, Object::Error { .. })
 }
 
 #[cfg(test)]

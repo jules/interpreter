@@ -91,7 +91,7 @@ impl Node {
             Node::IntegerLiteral { value } => s.push_str(&value.to_string()),
             Node::Boolean { value } => s.push_str(&value.to_string()),
             Node::FunctionLiteral { parameters, body } => {
-                s.push_str(&"fn(");
+                s.push_str("fn(");
                 s.push_str(
                     &parameters
                         .iter()
@@ -99,12 +99,12 @@ impl Node {
                         .collect::<Vec<String>>()
                         .join(", "),
                 );
-                s.push_str(&") ");
+                s.push_str(") ");
                 s.push_str(&body.as_string());
             }
             Node::PrefixExpression { operator, right } => {
                 s.push('(');
-                s.push_str(&operator);
+                s.push_str(operator);
                 s.push_str(&*right.as_string());
                 s.push(')');
             }
@@ -116,7 +116,7 @@ impl Node {
                 s.push('(');
                 s.push_str(&*left.as_string());
                 s.push(' ');
-                s.push_str(&operator);
+                s.push_str(operator);
                 s.push(' ');
                 s.push_str(&*right.as_string());
                 s.push(')');
@@ -126,13 +126,13 @@ impl Node {
                 consequence,
                 alternative,
             } => {
-                s.push_str(&"if");
+                s.push_str("if");
                 s.push_str(&*condition.as_string());
                 s.push(' ');
                 s.push_str(&*consequence.as_string());
 
                 if let Some(a) = alternative {
-                    s.push_str(&"else ");
+                    s.push_str("else ");
                     s.push_str(&a.as_string());
                 }
             }
@@ -152,17 +152,17 @@ impl Node {
                 s.push(')');
             }
             Node::LetStatement { name, value } => {
-                s.push_str(&"let ");
+                s.push_str("let ");
                 s.push_str(&name.as_string());
                 if let Some(v) = value {
-                    s.push_str(&" = ");
+                    s.push_str(" = ");
                     s.push_str(&v.as_string());
                 }
 
                 s.push(';');
             }
             Node::ReturnStatement { value } => {
-                s.push_str(&"return");
+                s.push_str("return");
                 if let Some(v) = value {
                     s.push(' ');
                     s.push_str(&v.as_string());
