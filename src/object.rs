@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Object {
     Integer { value: i64 },
@@ -29,6 +31,18 @@ impl Object {
             Object::ReturnValue { .. } => "RETURN_VALUE".to_string(),
             Object::Error { .. } => "ERROR".to_string(),
             Object::Null { .. } => "NULL".to_string(),
+        }
+    }
+}
+
+pub struct Environment {
+    pub storage: HashMap<String, Object>,
+}
+
+impl Environment {
+    pub fn new() -> Self {
+        Self {
+            storage: HashMap::new(),
         }
     }
 }

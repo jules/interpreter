@@ -1,13 +1,13 @@
 use crate::ast::Node;
-use crate::object::Object;
+use crate::object::{Environment, Object};
 
 const NULL: Object = Object::Null;
 const TRUE: Object = Object::Boolean { value: true };
 const FALSE: Object = Object::Boolean { value: false };
 
-pub fn eval(node: Node) -> Object {
+pub fn eval(node: Node, environment: &mut Environment) -> Object {
     match node {
-        Node::Program { statements } => eval_program(statements),
+        Node::Program { statements } => eval_program(statements, environment),
         Node::IntegerLiteral { value: v } => Object::Integer { value: v },
         Node::Boolean { value: v } => {
             if v {
@@ -18,13 +18,13 @@ pub fn eval(node: Node) -> Object {
         }
         Node::ExpressionStatement { expression } => {
             if let Some(e) = expression {
-                eval(*e)
+                eval(*e, environment)
             } else {
                 NULL
             }
         }
         Node::PrefixExpression { operator, right } => {
-            let right = eval(*right);
+            let right = eval(*right, environment);
             if is_error(right.clone()) {
                 return right;
             }
@@ -36,47 +36,60 @@ pub fn eval(node: Node) -> Object {
             operator,
             right,
         } => {
-            let right = eval(*right);
+            let right = eval(*right, environment);
             if is_error(right.clone()) {
                 return right;
             }
 
-            let left = eval(*left);
+            let left = eval(*left, environment);
             if is_error(left.clone()) {
                 return left;
             }
 
             eval_infix_expression(operator, left, right)
         }
-        Node::BlockStatement { statements } => eval_block_statement(statements),
+        Node::BlockStatement { statements } => eval_block_statement(statements, environment),
         Node::IfExpression {
             condition,
             consequence,
             alternative,
-        } => eval_if_expression(*condition, *consequence, alternative),
+        } => eval_if_expression(*condition, *consequence, alternative, environment),
         Node::ReturnStatement { value } => match value {
             Some(v) => {
-                let evaluated = eval(*v.clone());
+                let evaluated = eval(*v.clone(), environment);
                 if is_error(evaluated.clone()) {
                     return evaluated;
                 }
 
                 Object::ReturnValue {
-                    value: Box::new(eval(*v)),
+                    value: Box::new(eval(*v, environment)),
                 }
             }
             None => Object::ReturnValue {
                 value: Box::new(NULL),
             },
         },
+        Node::LetStatement { name, value } => {
+            if value.is_some() {
+                let val = eval(*value.unwrap(), environment);
+                if is_error(val.clone()) {
+                    return val;
+                }
+
+                environment.storage.insert((*name).as_string(), val);
+            }
+
+            NULL
+        }
+        Node::Identifier { value } => eval_identifier(value.v, environment),
         _ => panic!("Unsupported object"),
     }
 }
 
-fn eval_program(statements: Vec<Node>) -> Object {
+fn eval_program(statements: Vec<Node>, environment: &mut Environment) -> Object {
     let mut s = Object::Null;
     for statement in statements {
-        s = eval(statement);
+        s = eval(statement, environment);
         match s {
             Object::ReturnValue { value } => {
                 return *value;
@@ -91,10 +104,10 @@ fn eval_program(statements: Vec<Node>) -> Object {
     s
 }
 
-fn eval_block_statement(statements: Vec<Node>) -> Object {
+fn eval_block_statement(statements: Vec<Node>, environment: &mut Environment) -> Object {
     let mut s = Object::Null;
     for statement in statements {
-        s = eval(statement);
+        s = eval(statement, environment);
         if matches!(s, Object::ReturnValue { .. }) || matches!(s, Object::Error { .. }) {
             break;
         }
@@ -156,16 +169,17 @@ fn eval_if_expression(
     condition: Node,
     consequence: Node,
     alternative: Option<Box<Node>>,
+    environment: &mut Environment,
 ) -> Object {
-    let condition = eval(condition);
+    let condition = eval(condition, environment);
     if is_error(condition.clone()) {
         return condition;
     }
 
     if is_truthy(condition) {
-        eval(consequence)
+        eval(consequence, environment)
     } else if alternative.is_some() {
-        eval(*alternative.unwrap())
+        eval(*alternative.unwrap(), environment)
     } else {
         NULL
     }
@@ -222,6 +236,15 @@ fn eval_integer_infix_expression(operator: String, left: i64, right: i64) -> Obj
                 value: format!("unknown operator: INTEGER {} INTEGER", operator),
             }
         }
+    }
+}
+
+fn eval_identifier(name: String, environment: &mut Environment) -> Object {
+    match environment.storage.get(&name) {
+        Some(v) => v.clone(),
+        None => Object::Error {
+            value: format!("identifier not found: {}", name),
+        },
     }
 }
 
@@ -407,6 +430,7 @@ mod tests {
                 "if (10 > 1) { if (10 > 1) { return true + false; } return 1; };".to_string(),
                 "unknown operator: BOOLEAN + BOOLEAN",
             ),
+            ("foobar;".to_string(), "identifier not found: foobar"),
         ];
 
         table.iter().for_each(|(input, output)| {
@@ -418,9 +442,31 @@ mod tests {
         });
     }
 
+    #[test]
+    fn test_let_statements() {
+        let table = vec![
+            ("let a = 5; a;".to_string(), 5),
+            ("let a = 5 * 5; a;".to_string(), 25),
+            ("let a = 5; let b = a; b;".to_string(), 5),
+            (
+                "let a = 5; let b = a; let c = a + b + 5; c;".to_string(),
+                15,
+            ),
+        ];
+
+        table.iter().for_each(|(input, output)| {
+            let object = test_eval(input.to_string());
+            match object {
+                Object::Integer { value } => assert_eq!(value, *output),
+                _ => panic!("Unexpected object"),
+            }
+        });
+    }
+
     fn test_eval(input: String) -> Object {
         let l = Lexer::new(&input);
         let mut p = Parser::new(l);
-        eval(p.parse_program())
+        let mut environment = Environment::new();
+        eval(p.parse_program(), &mut environment)
     }
 }

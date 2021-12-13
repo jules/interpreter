@@ -1,9 +1,12 @@
 use crate::eval::eval;
 use crate::lexer::Lexer;
+use crate::object::Environment;
 use crate::parser::Parser;
 use std::io::{self, Write};
 
 pub fn start() {
+    let mut environment = Environment::new();
+
     loop {
         print!(">> ");
         io::stdout().flush().unwrap();
@@ -23,7 +26,7 @@ pub fn start() {
             })
         }
 
-        let evaluated = eval(program);
+        let evaluated = eval(program, &mut environment);
         println!("{}", evaluated.inspect());
     }
 }
